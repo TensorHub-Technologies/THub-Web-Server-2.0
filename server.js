@@ -12,10 +12,11 @@ const PORT = process.env.PORT || 2000;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
-  host: "34.42.24.163",
-  user: "root",
-  password: "THub@200324",
-  database: "mysql",
+  host: process.env.DATABASE_HOST,
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
+  port: process.env.DATABASE_PORT
 });
 
 app.use(express.json());
@@ -67,6 +68,49 @@ app.post("/api/auth/google", async (req, res) => {
 
     const payload = ticket.getPayload();
     console.log("Google user payload:", payload);
+    const userId = payload["sub"];
+    const email = payload.email;
+    const name = payload.name;
+    const picture = payload.picture;
+
+    const connection = await pool.getConnection();
+
+    
+    const [rows] = await connection.execute(
+      `SELECT uid FROM test_users WHERE email = ?`,
+      [email]
+    );
+
+    if (rows.length === 0) {
+      const insertUserQuery = `
+        INSERT INTO test_users (uid, email, access_token, login_type, name, picture)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+      await connection.execute(insertUserQuery, [
+        userId || null,
+        email || null,
+        access_token || null,
+        "google",
+        name || null,
+        picture || null,
+      ]);
+    } else {
+      const updateUserQuery = `
+        UPDATE test_users 
+        SET access_token = ?, login_type = ?, name = ?, picture = ? 
+        WHERE email = ?
+      `;
+      await connection.execute(updateUserQuery, [
+        access_token || null,
+        "google",
+        name || null,
+        picture || null,
+        email || null,
+      ]);
+    }
+
+    connection.release();
+    
     res.json({ id_token, access_token, user: payload });
   } catch (error) {
     console.error("Error exchanging code:", error.response?.data || error.message);
