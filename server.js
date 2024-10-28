@@ -180,6 +180,7 @@ app.get("/getuserData", async (req, res) => {
       );
 
       if (rows[0].count === 0) {
+        const subscription_type = "free"
         const query = `
           INSERT INTO test_users 
           (uid, email, access_token, name, login_type, picture, subscription_type) 
@@ -193,7 +194,7 @@ app.get("/getuserData", async (req, res) => {
           name,
           "github",
           avatar_url,
-          subcription_type || 'free',
+          subscription_type || 'free',
         ]);
 
         console.log("User data inserted successfully");
