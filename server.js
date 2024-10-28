@@ -7,7 +7,6 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 dotenv.config();
 const bcrypt = require('bcrypt');
-const router = express.Router();
 const jwt = require("jsonwebtoken");
 
 
@@ -25,30 +24,35 @@ const pool = mysql.createPool({
 
 app.use(express.json());
 
-const allowedOrigins = [
-  'https://thub-test-378678297066.us-central1.run.app',
-  'http://test.thub.tech',
-  'http://34.172.179.132:5001',
-  'http://localhost:5173',
-  'http://localhost:8080',
-  'https://thub.tech',
-  'https://beta.thub.tech'
-];
-const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
-
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (origin && regex.test(origin)) {
-      return callback(null, true);
+    const allowedOrigins = [
+      'https://thub-test-378678297066.us-central1.run.app',
+      'http://test.thub.tech',
+      'http://34.172.179.132:5001',
+      'http://localhost:5173',
+      'http://localhost:8080',
+      'http://localhost:2000',
+      'https://thub.tech',
+      'https://beta.thub.tech'
+    ];
+
+    const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
+
+    if (!origin || allowedOrigins.includes(origin) || regex.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  }
-}));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+
+
+
 app.post("/api/auth/google", async (req, res) => {
   const { code } = req.body;
   console.log(code, "from request body");
@@ -169,7 +173,7 @@ app.get("/getuserData", async (req, res) => {
 
     console.log(data, "User Data");
 
-    const { id, login, node_id, name, avatar_url } = data;
+    const { id, login, node_id, name, avatar_url, workspace } = data;
 
     const connection = await pool.getConnection();
 
@@ -179,12 +183,13 @@ app.get("/getuserData", async (req, res) => {
         [login]
       );
 
+      let userData;
       if (rows[0].count === 0) {
-        const subscription_type = "free"
+        const subscription_type = "free";
         const query = `
           INSERT INTO test_users 
-          (uid, email, access_token, name, login_type, picture, subscription_type) 
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          (uid, email, access_token, name, login_type, picture, subscription_type, workspace) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         await connection.execute(query, [
@@ -194,23 +199,42 @@ app.get("/getuserData", async (req, res) => {
           name,
           "github",
           avatar_url,
-          subscription_type || 'free',
+          subscription_type,
+          workspace || null
         ]);
 
+        userData = {
+          uid: id,
+          email: login,
+          access_token: node_id,
+          name,
+          login_type: "github",
+          picture: avatar_url,
+          subscription_type,
+          workspace: workspace || null,
+        };
+
         console.log("User data inserted successfully");
-        res.status(200).send("User authenticated and data stored");
       } else {
         console.log("User already exists");
-        res.status(200).send("User already exists");
+
+        const [existingUser] = await connection.execute(
+          "SELECT * FROM test_users WHERE email = ?",
+          [login]
+        );
+        userData = existingUser[0];
       }
+
+      res.status(200).json(userData);
     } finally {
-      connection.release(); 
+      connection.release();
     }
   } catch (error) {
     console.error("Error fetching user data or storing in DB:", error);
     res.status(500).json({ error: "Failed to fetch user data or store in DB" });
   }
 });
+
 
 // email register
 
@@ -259,6 +283,27 @@ app.post("/user", async (req, res) => {
   }
 })
 
+app.post("/userdata", async (req, res) => {
+  const { userId } = req.body;
+  console.log(req.body,"****");
+  
+
+  try {
+    const connection = await pool.getConnection();
+
+    const fetchUser = `SELECT * FROM test_users WHERE uid = ?`;
+    const user = await connection.execute(fetchUser, [userId]);
+    console.log("sent user data: ", user[0]);
+    connection.release();
+    res.status(200).send(user[0]);
+  } catch (error) {
+    console.error("Error creating new user:", error);
+    res
+      .status(500)
+      .json({ message: "Error creating new user", error: error.message });
+  }
+});
+
 // login register
   app.post('/loginUser', async (req, res) => {
     const { email, password } = req.body;
@@ -298,6 +343,29 @@ app.post("/user", async (req, res) => {
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  app.post("/updateUser", async (req, res) => {
+    const { uid, department, role, designation, company, workspace } = req.body;
+    try {
+      const connection = await pool.getConnection();
+      const updateUserQuery = `UPDATE test_users SET department = ?, role = ?, designation = ?, company = ?, workspace = ? WHERE uid = ?`;
+      await connection.execute(updateUserQuery, [
+        department,
+        role,
+        designation,
+        company,
+        workspace,
+        uid,
+      ]);
+      connection.release();
+      res.status(200).send({ message: "User data updated successfully" });
+    } catch (error) {
+      console.error("Error updating user data:", error);
+      res
+        .status(500)
+        .json({ message: "Error updating user data", error: error.message });
     }
   });
 
