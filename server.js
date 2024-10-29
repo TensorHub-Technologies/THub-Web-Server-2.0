@@ -10,16 +10,32 @@ const bcrypt = require('bcrypt');
 const jwt = require("jsonwebtoken");
 
 
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PORT = process.env.PORT || 2000;
+
+
+RAZORPAY_SECRET="mRcMlDUqNU21VNSiVUi9pxpg"
+RAZORPAY_KEY_ID="rzp_live_L6Fy6yBDycyCzw"
+EMAIL_SECRET_KEY="3oT8F4sm02jUIxoT91@ApxvPQ1z!0@"
+GOOGLE_CLIENT_ID="378678297066-q6qeqtpfh0ih4e99lv887o1rgduehs9u.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="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"
+GITHUB_CLIENT_ID="Ov23liLgDH9KQ9QZbAFc"
+GITHUB_CLIENT_SECRET="68edb40747f174cc7964bf9e24226c46546f9eb6"
+DATABASE_TYPE="mysql"
+DATABASE_PORT="3306"
+DATABASE_HOST="34.42.24.163"
+DATABASE_NAME="thub-sql-db"
+DATABASE_USER="root"
+DATABASE_PASSWORD="THub@200324"
+ 
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+const PORT =  2000;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
-  host: process.env.DATABASE_HOST,
-  user: process.env.DATABASE_USER,
-  password: process.env.DATABASE_PASSWORD,
-  database: process.env.DATABASE_NAME,
-  port: process.env.DATABASE_PORT
+  host: DATABASE_HOST,
+  user: DATABASE_USER,
+  password: DATABASE_PASSWORD,
+  database: DATABASE_NAME,
+  port: DATABASE_PORT
 });
 
 app.use(express.json());
@@ -60,8 +76,8 @@ app.post("/api/auth/google", async (req, res) => {
   try {
     const response = await axios.post("https://oauth2.googleapis.com/token", {
       code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
       redirect_uri: "postmessage",
       grant_type: "authorization_code",
     });
@@ -70,7 +86,7 @@ app.post("/api/auth/google", async (req, res) => {
 
     const ticket = await client.verifyIdToken({
       idToken: id_token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
@@ -138,8 +154,8 @@ app.post("/api/auth/google", async (req, res) => {
 app.get("/getAccessToken", async (req, res) => {
   try {
     const params = new URLSearchParams({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      client_id: GITHUB_CLIENT_ID,
+      client_secret: GITHUB_CLIENT_SECRET,
       code: req.query.code,
     });
 
@@ -246,10 +262,10 @@ function generateRandomID() {
 
 app.post("/user", async (req, res) => {
   try {
-    console.log("host: ",process.env.DATABASE_HOST)
-    console.log("user: ",process.env.DATABASE_USER)
-    console.log("password: ",process.env.DATABASE_PASSWORD)
-    console.log("database type: ",process.env.DATABASE_TYPE)
+    console.log("host: ",DATABASE_HOST)
+    console.log("user: ",DATABASE_USER)
+    console.log("password: ",DATABASE_PASSWORD)
+    console.log("database type: ",DATABASE_TYPE)
     console.log(req.body);
     const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date,workspace } = await req.body;
     const uid = generateRandomID();
@@ -331,7 +347,7 @@ app.post("/userdata", async (req, res) => {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
   
-      const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
+      const token = jwt.sign({ uid, email }, EMAIL_SECRET_KEY);
   
       res.status(200).json({
         message: 'Login successful',
