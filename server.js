@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const mysql = require('mysql2/promise');
+const nodemailer = require("nodemailer");
 const { OAuth2Client } = require('google-auth-library');
 const axios = require('axios');
 const cors = require('cors');
@@ -257,6 +258,100 @@ app.post("/user", async (req, res) => {
     res.status(401).send(error);
   }
 })
+
+// reset password
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString(); 
+}
+
+function sendEmail({ recipient_email, OTP }) {
+  return new Promise((resolve, reject) => {
+    var transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.MY_EMAIL,
+        pass: process.env.MY_PASSWORD,
+      },
+    });
+
+    const mail_configs = {
+      from: process.env.MY_EMAIL,
+      to: recipient_email,
+      subject: "KODING 101 PASSWORD RECOVERY",
+      html: `<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>CodePen - OTP Email Template</title>
+  
+
+</head>
+<body>
+<!-- partial:index.partial.html -->
+<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
+  <div style="margin:50px auto;width:70%;padding:20px 0">
+    <div style="border-bottom:1px solid #eee">
+      <a href="" style="font-size:1.4em;color: #00466a;text-decoration:none;font-weight:600">Koding 101</a>
+    </div>
+    <p style="font-size:1.1em">Hi,</p>
+    <p>Thank you for choosing Koding 101. Use the following OTP to complete your Password Recovery Procedure. OTP is valid for 5 minutes</p>
+    <h2 style="background: #00466a;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${OTP}</h2>
+    <p style="font-size:0.9em;">Regards,<br />Koding 101</p>
+    <hr style="border:none;border-top:1px solid #eee" />
+    <div style="float:right;padding:8px 0;color:#aaa;font-size:0.8em;line-height:1;font-weight:300">
+      <p>Koding 101 Inc</p>
+      <p>1600 Amphitheatre Parkway</p>
+      <p>California</p>
+    </div>
+  </div>
+</div>
+<!-- partial -->
+  
+</body>
+</html>`,
+    };
+    transporter.sendMail(mail_configs, function (error, info) {
+      if (error) {
+        console.log(error);
+        return reject({ message: `An error has occured` });
+      }
+      return resolve({ message: "Email sent succesfuly" });
+    });
+  });
+}
+
+const OTPStore = {};
+
+app.post("/send_recovery_email", (req, res) => {
+  const { recipient_email } = req.body;
+  const OTP = generateOTP();
+  
+  OTPStore[recipient_email] = OTP;
+
+  sendEmail({ recipient_email, OTP })
+    .then((response) => res.send(response.message))
+    .catch((error) => res.status(500).send(error.message));
+});
+
+app.post("/verify_otp", (req, res) => {
+  const { recipient_email, entered_otp } = req.body;
+  
+  // Verify the OTP
+  if (OTPStore[recipient_email] && OTPStore[recipient_email] === entered_otp) {
+    delete OTPStore[recipient_email];
+    return res.send({ message: "OTP verified successfully." });
+  } else {
+    return res.status(400).send({ message: "Invalid OTP." });
+  }
+});
+
+
+app.post("/send_recovery_email", (req, res) => {
+  sendEmail(req.body)
+    .then((response) => res.send(response.message))
+    .catch((error) => res.status(500).send(error.message));
+});
+
 
 // login register
   app.post('/loginUser', async (req, res) => {
