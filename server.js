@@ -25,7 +25,7 @@ DATABASE_HOST = "34.42.24.163";
 DATABASE_NAME = "thub-sql-db";
 DATABASE_USER = "root";
 DATABASE_PASSWORD = "THub@200324";
-NODE_ENV = "development";
+NODE_ENV = "prod";
 
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 const PORT = 2000;
@@ -424,8 +424,8 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: {
-    user: "vganapathyshankar@gmail.com",
-    pass: "hszudslqiqqbhlpj",
+    user: "no-reply@thub.tech",
+    pass: "xarj-vmez-sbwi-xdla",
   },
 });
 
