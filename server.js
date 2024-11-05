@@ -349,7 +349,7 @@ app.post("/userdata", async (req, res) => {
     console.log("sent user data: ", user[0]);
     connection.release();
     res.status(200).send(user[0]);
-  } catch (error) {
+  } catch (error) { 
     console.error("Error creating new user:", error);
     res
       .status(500)
@@ -543,8 +543,14 @@ app.post("/order", async (req, res) => {
 });
 
 app.post("/validate", async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenant } =
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenant , user_id} =
     req.body;
+    console.log(req.body,"razorpay")
+
+    const razorpay = new Razorpay({
+      key_id: "rzp_live_L6Fy6yBDycyCzw",
+      key_secret: "mRcMlDUqNU21VNSiVUi9pxpg",
+    });
 
   const sha = crypto.createHmac("sha256", "mRcMlDUqNU21VNSiVUi9pxpg");
   sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
@@ -552,11 +558,32 @@ app.post("/validate", async (req, res) => {
   if (digest !== razorpay_signature) {
     return res.status(400).json({ msg: "Transaction is not legit!" });
   }
+  const order = await razorpay.orders.fetch(razorpay_order_id);
+console.log(order,"order")
+console.log(order.amount,"order amount")
+  let subscriptionType;
+  
+  if (order.amount === 1 * 100) {
+    subscriptionType = "pro";
+  }else {
+    return res.status(400).json({ msg: "Invalid amount for subscription" });
+  }
+
+  if (!user_id || !subscriptionType) {
+    console.error("user_id or subscriptionType is missing:", { user_id, subscriptionType });
+    return res.status(400).json({ msg: "Missing required parameters" });
+  }
+
+  const connection = await pool.getConnection();
+    const updateSubscriptionQuery = `UPDATE test_users SET subscription_type = ? WHERE uid = ?`;
+    await connection.execute(updateSubscriptionQuery, [subscriptionType, user_id]);
+    connection.release();
 
   res.json({
     msg: "success",
     orderId: razorpay_order_id,
     paymentId: razorpay_payment_id,
+    subscriptionType: subscriptionType
   });
 });
 
