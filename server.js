@@ -1,7 +1,6 @@
 const express = require('express');
 const app = express();
 const mysql = require('mysql2/promise');
-const nodemailer = require("nodemailer");
 const { OAuth2Client } = require('google-auth-library');
 const axios = require('axios');
 const cors = require('cors');
@@ -9,27 +8,25 @@ const dotenv = require('dotenv');
 dotenv.config();
 const bcrypt = require('bcrypt');
 const jwt = require("jsonwebtoken");
-
-
-
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
 
 RAZORPAY_SECRET="mRcMlDUqNU21VNSiVUi9pxpg"
 RAZORPAY_KEY_ID="rzp_live_L6Fy6yBDycyCzw"
 EMAIL_SECRET_KEY="3oT8F4sm02jUIxoT91@ApxvPQ1z!0@"
 GOOGLE_CLIENT_ID="378678297066-q6qeqtpfh0ih4e99lv887o1rgduehs9u.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="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"
-GITHUB_CLIENT_ID="Ov23liLgDH9KQ9QZbAFc"
-GITHUB_CLIENT_SECRET="68edb40747f174cc7964bf9e24226c46546f9eb6"
+GITHUB_CLIENT_ID = "Ov23livsiN32CRBf7KtH";
+GITHUB_CLIENT_SECRET = "c206aa7f4048f95e01d49ce4b58c05ba6617a724";
 DATABASE_TYPE="mysql"
 DATABASE_PORT="3306"
-DATABASE_HOST="34.42.24.163"
-DATABASE_NAME="thub-sql-db"
+DATABASE_HOST="104.154.179.3"
+DATABASE_NAME="thub-prod-sql-db"
 DATABASE_USER="root"
 DATABASE_PASSWORD="THub@200324"
  
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-const PORT =  8080;
-
+const PORT =  2000;
 // MySQL Connection Pool
 const pool = mysql.createPool({
   host: DATABASE_HOST,
@@ -51,7 +48,13 @@ const corsOptions = {
       'http://localhost:8080',
       'http://localhost:2000',
       'https://thub.tech',
-      'https://beta.thub.tech'
+      'https://beta.thub.tech',
+      'https://thub-web-server-2-0-378678297066.us-central1.run.app',
+      'https://thub-web-ser-2-0ls-dot-thub-dev-420204.uc.r.appspot.com',
+      'http://34.172.210.189',
+      'https://thub-web-2-0-0-378678297066.us-central1.run.app',
+      'https://app.thub.tech',
+      'https://34.8.165.90'
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
@@ -103,7 +106,7 @@ app.post("/api/auth/google", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT subscription_type FROM test_users WHERE email = ?`,
+      `SELECT subscription_type FROM users WHERE email = ?`,
       [email]
     );
 
@@ -115,7 +118,7 @@ app.post("/api/auth/google", async (req, res) => {
 
     if (rows.length === 0) {
       const insertUserQuery = `
-        INSERT INTO test_users (uid, email, access_token, login_type, name, picture, subscription_type)
+        INSERT INTO users (uid, email, access_token, login_type, name, picture, subscription_type)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
       await connection.execute(insertUserQuery, [
@@ -129,7 +132,7 @@ app.post("/api/auth/google", async (req, res) => {
       ]);
     } else {
       const updateUserQuery = `
-        UPDATE test_users 
+        UPDATE users 
         SET access_token = ?, login_type = ?, name = ?, picture = ?, subscription_type = ?
         WHERE email = ?
       `;
@@ -198,7 +201,7 @@ app.get("/getuserData", async (req, res) => {
 
     try {
       const [rows] = await connection.execute(
-        "SELECT COUNT(*) as count FROM test_users WHERE email = ?",
+        "SELECT COUNT(*) as count FROM users WHERE email = ?",
         [login]
       );
 
@@ -206,7 +209,7 @@ app.get("/getuserData", async (req, res) => {
       if (rows[0].count === 0) {
         const subscription_type = "free";
         const query = `
-          INSERT INTO test_users 
+          INSERT INTO users 
           (uid, email, access_token, name, login_type, picture, subscription_type, workspace) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
@@ -238,7 +241,7 @@ app.get("/getuserData", async (req, res) => {
         console.log("User already exists");
 
         const [existingUser] = await connection.execute(
-          "SELECT * FROM test_users WHERE email = ?",
+          "SELECT * FROM users WHERE email = ?",
           [login]
         );
         userData = existingUser[0];
@@ -273,13 +276,13 @@ app.post("/user", async (req, res) => {
     const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date,workspace } = await req.body;
     const uid = generateRandomID();
     const name = firstName+" "+lastName;
-     const saltRounds = 10; 
-     password_hash = await bcrypt.hash(password, saltRounds);
+    const saltRounds = 10; 
+    password_hash = await bcrypt.hash(password, saltRounds);
     console.log("inside server::user : ", email, firstName, lastName, phone, password_hash, login_type, subscription_type, subscription_duration, subscription_date,workspace);
 
     const connection = await pool.getConnection();
 
-      const insertUserQuery = `INSERT INTO test_users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date,workspace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)`;
+      const insertUserQuery = `INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date,workspace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)`;
       await connection.execute(insertUserQuery, [
         uid || null,
         email || null,
@@ -302,100 +305,6 @@ app.post("/user", async (req, res) => {
   }
 })
 
-// reset password
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString(); 
-}
-
-function sendEmail({ recipient_email, OTP }) {
-  return new Promise((resolve, reject) => {
-    var transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.MY_EMAIL,
-        pass: process.env.MY_PASSWORD,
-      },
-    });
-
-    const mail_configs = {
-      from: process.env.MY_EMAIL,
-      to: recipient_email,
-      subject: "KODING 101 PASSWORD RECOVERY",
-      html: `<!DOCTYPE html>
-<html lang="en" >
-<head>
-  <meta charset="UTF-8">
-  <title>CodePen - OTP Email Template</title>
-  
-
-</head>
-<body>
-<!-- partial:index.partial.html -->
-<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
-  <div style="margin:50px auto;width:70%;padding:20px 0">
-    <div style="border-bottom:1px solid #eee">
-      <a href="" style="font-size:1.4em;color: #00466a;text-decoration:none;font-weight:600">Koding 101</a>
-    </div>
-    <p style="font-size:1.1em">Hi,</p>
-    <p>Thank you for choosing Koding 101. Use the following OTP to complete your Password Recovery Procedure. OTP is valid for 5 minutes</p>
-    <h2 style="background: #00466a;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${OTP}</h2>
-    <p style="font-size:0.9em;">Regards,<br />Koding 101</p>
-    <hr style="border:none;border-top:1px solid #eee" />
-    <div style="float:right;padding:8px 0;color:#aaa;font-size:0.8em;line-height:1;font-weight:300">
-      <p>Koding 101 Inc</p>
-      <p>1600 Amphitheatre Parkway</p>
-      <p>California</p>
-    </div>
-  </div>
-</div>
-<!-- partial -->
-  
-</body>
-</html>`,
-    };
-    transporter.sendMail(mail_configs, function (error, info) {
-      if (error) {
-        console.log(error);
-        return reject({ message: `An error has occured` });
-      }
-      return resolve({ message: "Email sent succesfuly" });
-    });
-  });
-}
-
-const OTPStore = {};
-
-app.post("/send_recovery_email", (req, res) => {
-  const { recipient_email } = req.body;
-  const OTP = generateOTP();
-  
-  OTPStore[recipient_email] = OTP;
-
-  sendEmail({ recipient_email, OTP })
-    .then((response) => res.send(response.message))
-    .catch((error) => res.status(500).send(error.message));
-});
-
-app.post("/verify_otp", (req, res) => {
-  const { recipient_email, entered_otp } = req.body;
-  
-  // Verify the OTP
-  if (OTPStore[recipient_email] && OTPStore[recipient_email] === entered_otp) {
-    delete OTPStore[recipient_email];
-    return res.send({ message: "OTP verified successfully." });
-  } else {
-    return res.status(400).send({ message: "Invalid OTP." });
-  }
-});
-
-
-app.post("/send_recovery_email", (req, res) => {
-  sendEmail(req.body)
-    .then((response) => res.send(response.message))
-    .catch((error) => res.status(500).send(error.message));
-});
-
-
 app.post("/userdata", async (req, res) => {
   const { userId } = req.body;
   console.log(req.body,"****");
@@ -404,7 +313,7 @@ app.post("/userdata", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    const fetchUser = `SELECT * FROM test_users WHERE uid = ?`;
+    const fetchUser = `SELECT * FROM users WHERE uid = ?`;
     const user = await connection.execute(fetchUser, [userId]);
     console.log("sent user data: ", user[0]);
     connection.release();
@@ -427,7 +336,7 @@ app.post("/userdata", async (req, res) => {
       // Query to get user data including workspace
       const [rows] = await connection.execute(
         `SELECT uid, email, password_hash, workspace 
-         FROM test_users 
+         FROM users 
          WHERE email = ?`,
         [email]
       );
@@ -463,7 +372,7 @@ app.post("/userdata", async (req, res) => {
     const { uid, department, role, designation, company, workspace } = req.body;
     try {
       const connection = await pool.getConnection();
-      const updateUserQuery = `UPDATE test_users SET department = ?, role = ?, designation = ?, company = ?, workspace = ? WHERE uid = ?`;
+      const updateUserQuery = `UPDATE users SET department = ?, role = ?, designation = ?, company = ?, workspace = ? WHERE uid = ?`;
       await connection.execute(updateUserQuery, [
         department,
         role,
@@ -481,6 +390,48 @@ app.post("/userdata", async (req, res) => {
         .json({ message: "Error updating user data", error: error.message });
     }
   });
+
+  
+//razorpay Code
+app.use(express.urlencoded({ extended: false }));
+app.post("/order", async (req, res) => {
+  try {
+    const razorpay = new Razorpay({
+      key_id: "rzp_live_L6Fy6yBDycyCzw",
+      key_secret: "mRcMlDUqNU21VNSiVUi9pxpg",
+    });
+
+    const options = req.body;
+    const order = await razorpay.orders.create(options);
+
+    if (!order) {
+      return res.status(500).send("Error");
+    }
+    res.json(order);
+  } catch (error) {
+    console.log(error);
+    res.status(500).send("Error");
+  }
+});
+
+app.post("/validate", async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenant } =
+    req.body;
+
+  const sha = crypto.createHmac("sha256", "mRcMlDUqNU21VNSiVUi9pxpg");
+  //order_id + "|" + razorpay_payment_id
+  sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+  const digest = sha.digest("hex");
+  if (digest !== razorpay_signature) {
+    return res.status(400).json({ msg: "Transaction is not legit!" });
+  }
+
+  res.json({
+    msg: "success",
+    orderId: razorpay_order_id,
+    paymentId: razorpay_payment_id,
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
