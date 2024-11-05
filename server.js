@@ -420,12 +420,12 @@ app.post("/updateUser", async (req, res) => {
 });
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: 'smtp.privateemail.com', 
+  port: 465, 
+  secure: true, 
   auth: {
-    user: "no-reply@thub.tech",
-    pass: "xarj-vmez-sbwi-xdla",
+    user: 'no-reply@thub.tech', 
+    pass: 'THub@200324',
   },
 });
 
@@ -462,10 +462,11 @@ app.post("/forgot-password", async (req, res) => {
     const apiUrl =
       NODE_ENV === "development"
         ? "http://localhost:5173"
-        : "https://thub-web-ser-2-0ls-dot-thub-dev-420204.uc.r.appspot.com";
+        : "https://thub-web-2-0-0-378678297066.us-central1.run.app";
     const resetURL = `${apiUrl}/auth/reset-password/${resetToken}?uid=${userId}`;
 
     await transporter.sendMail({
+      from: 'no-reply@thub.tech', 
       to: email,
       subject: "Password Reset Request",
       text: `Please use the following link to reset your password: ${resetURL}`,
