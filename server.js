@@ -8,6 +8,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
@@ -515,6 +516,47 @@ app.post("/reset-password/:token", async (req, res) => {
       .status(500)
       .json({ message: "Error resetting password", error: error.message });
   }
+});
+  
+//razorpay Code
+app.use(express.urlencoded({ extended: false }));
+app.post("/order", async (req, res) => {
+  try {
+    const razorpay = new Razorpay({
+      key_id: "rzp_live_L6Fy6yBDycyCzw",
+      key_secret: "mRcMlDUqNU21VNSiVUi9pxpg",
+    });
+
+    const options = req.body;
+    const order = await razorpay.orders.create(options);
+
+    if (!order) {
+      return res.status(500).send("Error");
+    }
+    res.json(order);
+  } catch (error) {
+    console.log(error);
+    res.status(500).send("Error");
+  }
+});
+
+app.post("/validate", async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenant } =
+    req.body;
+
+  const sha = crypto.createHmac("sha256", "mRcMlDUqNU21VNSiVUi9pxpg");
+  //order_id + "|" + razorpay_payment_id
+  sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+  const digest = sha.digest("hex");
+  if (digest !== razorpay_signature) {
+    return res.status(400).json({ msg: "Transaction is not legit!" });
+  }
+
+  res.json({
+    msg: "success",
+    orderId: razorpay_order_id,
+    paymentId: razorpay_payment_id,
+  });
 });
 
 app.listen(PORT, () => {
