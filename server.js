@@ -517,8 +517,6 @@ app.post("/reset-password/:token", async (req, res) => {
       .json({ message: "Error resetting password", error: error.message });
   }
 });
-
-
   
 //razorpay Code
 app.use(express.urlencoded({ extended: false }));
