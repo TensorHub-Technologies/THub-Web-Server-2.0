@@ -46,6 +46,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       "https://thub-test-378678297066.us-central1.run.app",
+      "https://thub-web-2-0-0-378678297066.us-central1.run.app",
       "http://test.thub.tech",
       "http://34.172.179.132:5001",
       "http://localhost:5173",
@@ -520,6 +521,7 @@ app.post("/reset-password/:token", async (req, res) => {
   
 //razorpay Code
 app.use(express.urlencoded({ extended: false }));
+
 app.post("/order", async (req, res) => {
   try {
     const razorpay = new Razorpay({
@@ -545,7 +547,6 @@ app.post("/validate", async (req, res) => {
     req.body;
 
   const sha = crypto.createHmac("sha256", "mRcMlDUqNU21VNSiVUi9pxpg");
-  //order_id + "|" + razorpay_payment_id
   sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
   const digest = sha.digest("hex");
   if (digest !== razorpay_signature) {
