@@ -29,7 +29,7 @@ DATABASE_PASSWORD = "THub@200324";
 NODE_ENV = "prod";
 
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-const PORT = 8080;
+const PORT = 2000;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
@@ -105,7 +105,7 @@ app.post("/api/auth/google", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT subscription_type FROM test_users WHERE email = ?`,
+      `SELECT subscription_type FROM users WHERE email = ?`,
       [email]
     );
 
@@ -117,7 +117,7 @@ app.post("/api/auth/google", async (req, res) => {
 
     if (rows.length === 0) {
       const insertUserQuery = `
-        INSERT INTO test_users (uid, email, access_token, login_type, name, picture, subscription_type)
+        INSERT INTO users (uid, email, access_token, login_type, name, picture, subscription_type)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
       await connection.execute(insertUserQuery, [
@@ -131,7 +131,7 @@ app.post("/api/auth/google", async (req, res) => {
       ]);
     } else {
       const updateUserQuery = `
-        UPDATE test_users 
+        UPDATE users 
         SET access_token = ?, login_type = ?, name = ?, picture = ?, subscription_type = ?
         WHERE email = ?
       `;
@@ -202,7 +202,7 @@ app.get("/getuserData", async (req, res) => {
 
     try {
       const [rows] = await connection.execute(
-        "SELECT COUNT(*) as count FROM test_users WHERE email = ?",
+        "SELECT COUNT(*) as count FROM users WHERE email = ?",
         [login]
       );
 
@@ -210,7 +210,7 @@ app.get("/getuserData", async (req, res) => {
       if (rows[0].count === 0) {
         const subscription_type = "free";
         const query = `
-          INSERT INTO test_users 
+          INSERT INTO users 
           (uid, email, access_token, name, login_type, picture, subscription_type, workspace) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
@@ -242,7 +242,7 @@ app.get("/getuserData", async (req, res) => {
         console.log("User already exists");
 
         const [existingUser] = await connection.execute(
-          "SELECT * FROM test_users WHERE email = ?",
+          "SELECT * FROM users WHERE email = ?",
           [login]
         );
         userData = existingUser[0];
@@ -308,7 +308,7 @@ app.post("/user", async (req, res) => {
 
     const connection = await pool.getConnection();
 
-    const insertUserQuery = `INSERT INTO test_users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date,workspace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)`;
+    const insertUserQuery = `INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date,workspace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)`;
     await connection.execute(insertUserQuery, [
       uid || null,
       email || null,
@@ -344,7 +344,7 @@ app.post("/userdata", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    const fetchUser = `SELECT * FROM test_users WHERE uid = ?`;
+    const fetchUser = `SELECT * FROM users WHERE uid = ?`;
     const user = await connection.execute(fetchUser, [userId]);
     console.log("sent user data: ", user[0]);
     connection.release();
@@ -367,7 +367,7 @@ app.post("/loginUser", async (req, res) => {
     // Query to get user data including workspace
     const [rows] = await connection.execute(
       `SELECT uid, email, password_hash, workspace 
-         FROM test_users 
+         FROM users 
          WHERE email = ?`,
       [email]
     );
@@ -402,7 +402,7 @@ app.post("/updateUser", async (req, res) => {
   const { uid, department, role, designation, company, workspace } = req.body;
   try {
     const connection = await pool.getConnection();
-    const updateUserQuery = `UPDATE test_users SET department = ?, role = ?, designation = ?, company = ?, workspace = ? WHERE uid = ?`;
+    const updateUserQuery = `UPDATE users SET department = ?, role = ?, designation = ?, company = ?, workspace = ? WHERE uid = ?`;
     await connection.execute(updateUserQuery, [
       department,
       role,
@@ -438,7 +438,7 @@ app.post("/forgot-password", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [user] = await connection.execute(
-      `SELECT uid FROM test_users WHERE email = ?`,
+      `SELECT uid FROM users WHERE email = ?`,
       [email]
     );
 
@@ -456,7 +456,7 @@ app.post("/forgot-password", async (req, res) => {
       .replace("T", " ");
 
     await connection.execute(
-      `UPDATE test_users SET reset_token = ?, token_expiry = ? WHERE uid = ?`,
+      `UPDATE users SET reset_token = ?, token_expiry = ? WHERE uid = ?`,
       [resetToken, tokenExpiry, userId]
     );
 
@@ -494,7 +494,7 @@ app.post("/reset-password/:token", async (req, res) => {
 
     // Fetch the user based on uid and token
     const [user] = await connection.execute(
-      `SELECT token_expiry, reset_token FROM test_users WHERE uid = ? AND reset_token = ?`,
+      `SELECT token_expiry, reset_token FROM users WHERE uid = ? AND reset_token = ?`,
       [uid, token]
     );
 
@@ -504,7 +504,7 @@ app.post("/reset-password/:token", async (req, res) => {
 
     // Update the user's password and reset the token
     await connection.execute(
-      `UPDATE test_users SET password_hash = ?, reset_token = NULL, token_expiry = NULL WHERE uid = ?`,
+      `UPDATE users SET password_hash = ?, reset_token = NULL, token_expiry = NULL WHERE uid = ?`,
       [hashedPassword, uid]
     );
 
@@ -575,7 +575,7 @@ console.log(order.amount,"order amount")
   }
 
   const connection = await pool.getConnection();
-    const updateSubscriptionQuery = `UPDATE test_users SET subscription_type = ? WHERE uid = ?`;
+    const updateSubscriptionQuery = `UPDATE users SET subscription_type = ? WHERE uid = ?`;
     await connection.execute(updateSubscriptionQuery, [subscriptionType, user_id]);
     connection.release();
 
