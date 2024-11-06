@@ -261,54 +261,114 @@ app.get("/getuserData", async (req, res) => {
 // email register
 
 function generateRandomID() {
-  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
-    (
-      +c ^
-      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))
-    ).toString(16)
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+    (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> +c / 4).toString(16)
   );
 }
+async function sendEmail({ recipient_email, OTP }) {
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.privateemail.com', 
+    port: 465, 
+    secure: true, 
+    auth: {
+      user: 'no-reply@thub.tech', 
+      pass: 'THub@200324',
+    },
+  });
+  
 
+  const mailOptions = {
+    from: "no-reply@thub.tech", 
+    to: recipient_email, 
+    subject: "Your OTP Code",
+    text: `Your OTP code is: ${OTP}. It will expire in 5 minutes.`,
+  };
+
+  return new Promise((resolve, reject) => {
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error("Error sending email:", error);
+        return reject(error);
+      }
+      console.log(`OTP sent to ${recipient_email}: ${info.response}`);
+      resolve(info);
+    });
+  });
+}
+
+// Store for OTPs
+const otpStore = new Map();
+
+// Endpoint to check email existence
+app.post("/check-email", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const connection = await pool.getConnection();
+    const [rows] = await connection.execute(
+      `SELECT COUNT(*) AS count FROM users WHERE email = ?`,
+      [email]
+    );
+    connection.release();
+
+    const emailExists = rows[0].count > 0;
+
+    if (emailExists) {
+      res.status(200).json({ exists: true });
+    } else {
+      res.status(200).json({ exists: false });
+    }
+  } catch (error) {
+    console.error("Error checking email:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Endpoint to send OTP
+app.post("/send-otp", async (req, res) => {
+  const { email } = req.body;
+  const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+  otpStore.set(email, otp); 
+
+  console.log(`OTP for ${email}: ${otp}`); 
+
+  try {
+    await sendEmail({ recipient_email: email, OTP: otp }); 
+    res.status(200).json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("Error sending OTP email:", error);
+    res.status(500).json({ message: "Failed to send OTP" });
+  }
+});
+
+// Endpoint to verify OTP
+app.post("/verify-otp", (req, res) => {
+  const { email, otp } = req.body;
+  const storedOtp = otpStore.get(email);
+
+  if (storedOtp === otp) {
+    otpStore.delete(email); 
+    res.status(200).json({ message: "OTP verified" });
+  } else {
+    res.status(400).json({ message: "Invalid OTP" });
+  }
+});
+
+// Endpoint to register a user
 app.post("/user", async (req, res) => {
   try {
-    console.log("host: ", DATABASE_HOST);
-    console.log("user: ", DATABASE_USER);
-    console.log("password: ", DATABASE_PASSWORD);
-    console.log("database type: ", DATABASE_TYPE);
-    console.log(req.body);
-    const {
-      email,
-      firstName,
-      lastName,
-      phone,
-      password,
-      login_type,
-      subscription_type,
-      subscription_duration,
-      subscription_date,
-      workspace,
-    } = await req.body;
+    const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace } = req.body;
+
     const uid = generateRandomID();
-    const name = firstName + " " + lastName;
+    const name = `${firstName} ${lastName}`;
     const saltRounds = 10;
-    password_hash = await bcrypt.hash(password, saltRounds);
-    console.log(
-      "inside server::user : ",
-      email,
-      firstName,
-      lastName,
-      phone,
-      password_hash,
-      login_type,
-      subscription_type,
-      subscription_duration,
-      subscription_date,
-      workspace
-    );
+    const password_hash = await bcrypt.hash(password, saltRounds);
+    
+    console.log("Inside server::user:", email, firstName, lastName, phone, password_hash, login_type, subscription_type, subscription_duration, subscription_date, workspace);
 
     const connection = await pool.getConnection();
 
-    const insertUserQuery = `INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date,workspace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)`;
+    const insertUserQuery = `INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date, workspace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     await connection.execute(insertUserQuery, [
       uid || null,
       email || null,
@@ -319,23 +379,16 @@ app.post("/user", async (req, res) => {
       subscription_type || null,
       subscription_duration || null,
       subscription_date || null,
-      null,
+      workspace || null,
     ]);
-    res
-      .status(200)
-      .json({
-        message: "user successfully added",
-        userId: uid,
-        workspace: null,
-      });
-
+    res.status(200).json({ message: "User successfully added", userId: uid, workspace: null });
     connection.release();
   } catch (error) {
-    console.error("Error :", error);
-
-    res.status(401).send(error);
+    console.error("Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 
 app.post("/userdata", async (req, res) => {
   const { userId } = req.body;
@@ -502,7 +555,6 @@ app.post("/reset-password/:token", async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // Update the user's password and reset the token
     await connection.execute(
       `UPDATE users SET password_hash = ?, reset_token = NULL, token_expiry = NULL WHERE uid = ?`,
       [hashedPassword, uid]
@@ -559,12 +611,16 @@ app.post("/validate", async (req, res) => {
     return res.status(400).json({ msg: "Transaction is not legit!" });
   }
   const order = await razorpay.orders.fetch(razorpay_order_id);
-console.log(order,"order")
-console.log(order.amount,"order amount")
+  console.log(order,"order")
+  console.log(order.amount,"order amount")
   let subscriptionType;
+  let subscription_duration;
+  let subscription_date;
   
   if (order.amount === 1 * 100) {
     subscriptionType = "pro";
+    subscription_duration="monthly";
+    subscription_date = new Date().toISOString().split('T')[0];
   }else {
     return res.status(400).json({ msg: "Invalid amount for subscription" });
   }
@@ -573,19 +629,30 @@ console.log(order.amount,"order amount")
     console.error("user_id or subscriptionType is missing:", { user_id, subscriptionType });
     return res.status(400).json({ msg: "Missing required parameters" });
   }
+  try {
+    const updateSubscriptionQuery = `
+      UPDATE users 
+      SET subscription_type = ?, subscription_duration = ?, subscription_date = ? 
+      WHERE uid = ?`;
+    await connection.execute(updateSubscriptionQuery, [subscriptionType, subscription_duration, subscription_date, user_id]);
 
-  const connection = await pool.getConnection();
-    const updateSubscriptionQuery = `UPDATE users SET subscription_type = ? WHERE uid = ?`;
-    await connection.execute(updateSubscriptionQuery, [subscriptionType, user_id]);
+    res.json({
+      msg: "success",
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      subscriptionType,
+      subscription_duration,
+      subscription_date
+    });
+  } catch (error) {
+    console.error("Error updating subscription:", error);
+    res.status(500).json({ msg: "Failed to update subscription" });
+  } finally {
     connection.release();
-
-  res.json({
-    msg: "success",
-    orderId: razorpay_order_id,
-    paymentId: razorpay_payment_id,
-    subscriptionType: subscriptionType
-  });
+  }
 });
+
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
