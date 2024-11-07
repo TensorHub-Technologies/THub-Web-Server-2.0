@@ -517,7 +517,7 @@ app.post("/forgot-password", async (req, res) => {
     const apiUrl =
       NODE_ENV === "development"
         ? "http://localhost:5173"
-        : "https://thub-web-2-0-0-378678297066.us-central1.run.app";
+        : "https://thub.tech";
     const resetURL = `${apiUrl}/auth/reset-password/${resetToken}?uid=${userId}`;
 
     await transporter.sendMail({
