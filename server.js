@@ -281,7 +281,15 @@ async function sendEmail({ recipient_email, OTP }) {
     from: "no-reply@thub.tech", 
     to: recipient_email, 
     subject: "Your OTP Code",
-    text: `Your OTP code is: ${OTP}. It will expire in 5 minutes.`,
+    html: `
+    <p>Hi there,</p>
+    <p>Your one-time password (OTP) for accessing THub.tech is:</p>
+    <strong><span style="font-size: 18px;">${OTP}</span></strong>
+    <p>This code will expire in 1 minutes.</p>
+    <p>Please enter this code to verify your identity.</p>
+    <p>Thanks,</p>
+    <p>The THub Team</p>
+  `,
   };
 
   return new Promise((resolve, reject) => {
@@ -629,7 +637,10 @@ app.post("/validate", async (req, res) => {
     console.error("user_id or subscriptionType is missing:", { user_id, subscriptionType });
     return res.status(400).json({ msg: "Missing required parameters" });
   }
+  let connection;
   try {
+     connection = await pool.getConnection();
+
     const updateSubscriptionQuery = `
       UPDATE users 
       SET subscription_type = ?, subscription_duration = ?, subscription_date = ? 
