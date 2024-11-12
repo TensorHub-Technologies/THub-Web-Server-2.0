@@ -12,32 +12,16 @@ const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
-RAZORPAY_SECRET = "mRcMlDUqNU21VNSiVUi9pxpg";
-RAZORPAY_KEY_ID = "rzp_live_L6Fy6yBDycyCzw";
-EMAIL_SECRET_KEY = "3oT8F4sm02jUIxoT91@ApxvPQ1z!0@";
-GOOGLE_CLIENT_ID =
-  "378678297066-q6qeqtpfh0ih4e99lv887o1rgduehs9u.apps.googleusercontent.com";
-GOOGLE_CLIENT_SECRET = "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";
-GITHUB_CLIENT_ID = "Ov23liXLGJx4h6LN9zZj";
-GITHUB_CLIENT_SECRET = "2ff4415fdf7d9c987863204e39a5fa888f01f997";
-DATABASE_TYPE = "mysql";
-DATABASE_PORT = "3306";
-DATABASE_HOST = "34.42.24.163";
-DATABASE_NAME = "thub-sql-db";
-DATABASE_USER = "root";
-DATABASE_PASSWORD = "THub@200324";
-NODE_ENV = "prod";
-
-const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+const client = new OAuth2Client(prcoess.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
-  host: DATABASE_HOST,
-  user: DATABASE_USER,
-  password: DATABASE_PASSWORD,
-  database: DATABASE_NAME,
-  port: DATABASE_PORT,
+  host: prcoess.env.DATABASE_HOST,
+  user: prcoess.env.DATABASE_USER,
+  password: prcoess.env.DATABASE_PASSWORD,
+  database: prcoess.env.DATABASE_NAME,
+  port: prcoess.env.DATABASE_PORT,
 });
 
 app.use(express.json());
@@ -82,8 +66,8 @@ app.post("/api/auth/google", async (req, res) => {
   try {
     const response = await axios.post("https://oauth2.googleapis.com/token", {
       code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
+      client_id: prcoess.env.GOOGLE_CLIENT_ID,
+      client_secret: prcoess.env.GOOGLE_CLIENT_SECRET,
       redirect_uri: "postmessage",
       grant_type: "authorization_code",
     });
@@ -92,7 +76,7 @@ app.post("/api/auth/google", async (req, res) => {
 
     const ticket = await client.verifyIdToken({
       idToken: id_token,
-      audience: GOOGLE_CLIENT_ID,
+      audience: prcoess.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
@@ -162,8 +146,8 @@ app.post("/api/auth/google", async (req, res) => {
 app.get("/getAccessToken", async (req, res) => {
   try {
     const params = new URLSearchParams({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
+      client_id: prcoess.env.GITHUB_CLIENT_ID,
+      client_secret: prcoess.env.GITHUB_CLIENT_SECRET,
       code: req.query.code,
     });
 
@@ -446,7 +430,7 @@ app.post("/loginUser", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ uid, email }, EMAIL_SECRET_KEY);
+    const token = jwt.sign({ uid, email }, prcoess.env.EMAIL_SECRET_KEY);
 
     res.status(200).json({
       message: "Login successful",
@@ -524,7 +508,7 @@ app.post("/forgot-password", async (req, res) => {
 
     connection.release();
     const apiUrl =
-      NODE_ENV === "development"
+      prcoess.env.NODE_ENV === "development"
         ? "http://localhost:5173"
         : "https://thub.tech";
     const resetURL = `${apiUrl}/auth/reset-password/${resetToken}?uid=${userId}`;
