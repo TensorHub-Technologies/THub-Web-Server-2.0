@@ -257,7 +257,7 @@ async function sendEmail({ recipient_email, OTP }) {
     secure: true, 
     auth: {
       user: 'no-reply@thub.tech', 
-      pass: 'THub@200324',
+      pass: process.env.NO_REPLY_MAIL_PASSWORD,
     },
   });
   
@@ -473,7 +473,7 @@ const transporter = nodemailer.createTransport({
   secure: true, 
   auth: {
     user: 'no-reply@thub.tech', 
-    pass: 'THub@200324',
+    pass: process.env.NO_REPLY_MAIL_PASSWORD,
   },
 });
 
@@ -570,8 +570,8 @@ app.use(express.urlencoded({ extended: false }));
 app.post("/order", async (req, res) => {
   try {
     const razorpay = new Razorpay({
-      key_id: "rzp_live_L6Fy6yBDycyCzw",
-      key_secret: "mRcMlDUqNU21VNSiVUi9pxpg",
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_SECRET,
     });
 
     const options = req.body;
@@ -593,8 +593,8 @@ app.post("/validate", async (req, res) => {
     console.log(req.body,"razorpay")
 
     const razorpay = new Razorpay({
-      key_id: "rzp_live_L6Fy6yBDycyCzw",
-      key_secret: "mRcMlDUqNU21VNSiVUi9pxpg",
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_SECRET,
     });
 
   const sha = crypto.createHmac("sha256", "mRcMlDUqNU21VNSiVUi9pxpg");
