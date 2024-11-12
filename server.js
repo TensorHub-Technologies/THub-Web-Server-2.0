@@ -29,7 +29,7 @@ DATABASE_PASSWORD = "THub@200324";
 NODE_ENV = "prod";
 
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
