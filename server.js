@@ -13,7 +13,7 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
 const client = new OAuth2Client(prcoess.env.GOOGLE_CLIENT_ID);
-const PORT = 8080;
+const PORT = prcoess.env.PORT;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
