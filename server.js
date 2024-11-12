@@ -12,16 +12,16 @@ const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
-const client = new OAuth2Client(prcoess.env.GOOGLE_CLIENT_ID);
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
-  host: prcoess.env.DATABASE_HOST,
-  user: prcoess.env.DATABASE_USER,
-  password: prcoess.env.DATABASE_PASSWORD,
-  database: prcoess.env.DATABASE_NAME,
-  port: prcoess.env.DATABASE_PORT,
+  host: process.env.DATABASE_HOST,
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
+  port: process.env.DATABASE_PORT,
 });
 
 app.use(express.json());
@@ -66,8 +66,8 @@ app.post("/api/auth/google", async (req, res) => {
   try {
     const response = await axios.post("https://oauth2.googleapis.com/token", {
       code,
-      client_id: prcoess.env.GOOGLE_CLIENT_ID,
-      client_secret: prcoess.env.GOOGLE_CLIENT_SECRET,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
       redirect_uri: "postmessage",
       grant_type: "authorization_code",
     });
@@ -76,7 +76,7 @@ app.post("/api/auth/google", async (req, res) => {
 
     const ticket = await client.verifyIdToken({
       idToken: id_token,
-      audience: prcoess.env.GOOGLE_CLIENT_ID,
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
@@ -146,8 +146,8 @@ app.post("/api/auth/google", async (req, res) => {
 app.get("/getAccessToken", async (req, res) => {
   try {
     const params = new URLSearchParams({
-      client_id: prcoess.env.GITHUB_CLIENT_ID,
-      client_secret: prcoess.env.GITHUB_CLIENT_SECRET,
+      client_id: process.env.GITHUB_CLIENT_ID,
+      client_secret: process.env.GITHUB_CLIENT_SECRET,
       code: req.query.code,
     });
 
@@ -430,7 +430,7 @@ app.post("/loginUser", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ uid, email }, prcoess.env.EMAIL_SECRET_KEY);
+    const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
 
     res.status(200).json({
       message: "Login successful",
@@ -508,7 +508,7 @@ app.post("/forgot-password", async (req, res) => {
 
     connection.release();
     const apiUrl =
-      prcoess.env.NODE_ENV === "development"
+      process.env.NODE_ENV === "development"
         ? "http://localhost:5173"
         : "https://thub.tech";
     const resetURL = `${apiUrl}/auth/reset-password/${resetToken}?uid=${userId}`;
