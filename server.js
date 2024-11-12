@@ -71,7 +71,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.get("/", (req, res) => {
-  res.status(200).send({ message: "Thub-Web-Server-2.0....." });
+  res.status(200).send({ message: "Thub-Web-Server-2.0.....",process.env.ENV });
 });
 
 app.post("/api/auth/google", async (req, res) => {
