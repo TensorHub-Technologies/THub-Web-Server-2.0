@@ -436,7 +436,7 @@ app.post("/loginUser", async (req, res) => {
       message: "Login successful",
       token,
       userId: uid,
-      workspace: workspace || "beta",
+      workspace: workspace,
     });
   } catch (error) {
     console.error("Login error:", error);
