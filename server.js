@@ -11,33 +11,19 @@ const jwt = require("jsonwebtoken");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
 
-RAZORPAY_SECRET = "mRcMlDUqNU21VNSiVUi9pxpg";
-RAZORPAY_KEY_ID = "rzp_live_L6Fy6yBDycyCzw";
-EMAIL_SECRET_KEY = "3oT8F4sm02jUIxoT91@ApxvPQ1z!0@";
-GOOGLE_CLIENT_ID =
-  "378678297066-q6qeqtpfh0ih4e99lv887o1rgduehs9u.apps.googleusercontent.com";
-GOOGLE_CLIENT_SECRET = "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";
-GITHUB_CLIENT_ID = "Ov23liLgDH9KQ9QZbAFc";
-GITHUB_CLIENT_SECRET = "68edb40747f174cc7964bf9e24226c46546f9eb6";
-DATABASE_TYPE = "mysql";
-DATABASE_PORT = "3306";
-DATABASE_HOST = "34.42.24.163";
-DATABASE_NAME = "thub-sql-db";
-DATABASE_USER = "root";
-DATABASE_PASSWORD = "THub@200324";
-NODE_ENV = "prod";
 
-const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-const PORT = 8080;
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const PORT = process.env.PORT || 8080;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
-  host: DATABASE_HOST,
-  user: DATABASE_USER,
-  password: DATABASE_PASSWORD,
-  database: DATABASE_NAME,
-  port: DATABASE_PORT,
+  host: process.env.DATABASE_HOST,
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
+  port: process.env.DATABASE_PORT,
 });
 
 app.use(express.json());
@@ -71,7 +57,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.get("/", (req, res) => {
-  res.status(200).send({ message: "Thub-Web-Server-2.0....." });
+  const url = process.env.URL;
+  res.status(200).send({ message: "Thub-Web-Server-2.0.....", url});
 });
 
 app.post("/api/auth/google", async (req, res) => {
@@ -81,8 +68,8 @@ app.post("/api/auth/google", async (req, res) => {
   try {
     const response = await axios.post("https://oauth2.googleapis.com/token", {
       code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
       redirect_uri: "postmessage",
       grant_type: "authorization_code",
     });
@@ -91,7 +78,7 @@ app.post("/api/auth/google", async (req, res) => {
 
     const ticket = await client.verifyIdToken({
       idToken: id_token,
-      audience: GOOGLE_CLIENT_ID,
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
@@ -161,8 +148,8 @@ app.post("/api/auth/google", async (req, res) => {
 app.get("/getAccessToken", async (req, res) => {
   try {
     const params = new URLSearchParams({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
+      client_id: process.env.GITHUB_CLIENT_ID,
+      client_secret: process.env.GITHUB_CLIENT_SECRET,
       code: req.query.code,
     });
 
@@ -272,7 +259,7 @@ async function sendEmail({ recipient_email, OTP }) {
     secure: true, 
     auth: {
       user: 'no-reply@thub.tech', 
-      pass: 'THub@200324',
+      pass: process.env.NO_REPLY_MAIL_PASSWORD,
     },
   });
   
@@ -407,7 +394,6 @@ app.post("/userdata", async (req, res) => {
 
     const fetchUser = `SELECT * FROM users WHERE uid = ?`;
     const user = await connection.execute(fetchUser, [userId]);
-    console.log("sent user data: ", user[0]);
     connection.release();
     res.status(200).send(user[0]);
   } catch (error) { 
@@ -445,13 +431,13 @@ app.post("/loginUser", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ uid, email }, EMAIL_SECRET_KEY);
+    const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
 
     res.status(200).json({
       message: "Login successful",
       token,
       userId: uid,
-      workspace: workspace || "beta",
+      workspace: workspace,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -488,7 +474,7 @@ const transporter = nodemailer.createTransport({
   secure: true, 
   auth: {
     user: 'no-reply@thub.tech', 
-    pass: 'THub@200324',
+    pass: process.env.NO_REPLY_MAIL_PASSWORD,
   },
 });
 
@@ -523,9 +509,9 @@ app.post("/forgot-password", async (req, res) => {
 
     connection.release();
     const apiUrl =
-      NODE_ENV === "development"
+      process.env.NODE_ENV === "development"
         ? "http://localhost:5173"
-        : "https://thub-web-2-0-0-378678297066.us-central1.run.app";
+        : "https://thub.tech";
     const resetURL = `${apiUrl}/auth/reset-password/${resetToken}?uid=${userId}`;
 
     await transporter.sendMail({
@@ -582,88 +568,124 @@ app.post("/reset-password/:token", async (req, res) => {
 //razorpay Code
 app.use(express.urlencoded({ extended: false }));
 
-app.post("/order", async (req, res) => {
+app.post('/create-subscription', async (req, res) => {
+  console.log(req.body,"create-subscription")
   try {
     const razorpay = new Razorpay({
-      key_id: "rzp_live_L6Fy6yBDycyCzw",
-      key_secret: "mRcMlDUqNU21VNSiVUi9pxpg",
+      key_id: "rzp_test_pMR0oNtQh7JOlN",
+      key_secret: "mGm9bAlPYmCMSgyj49LyOeps",
     });
+    
+    const { planId, customerEmail } = req.body;
+    let subscriptionType, duration;
 
-    const options = req.body;
-    const order = await razorpay.orders.create(options);
-
-    if (!order) {
-      return res.status(500).send("Error");
+    if (planId === 'plan_PKKqYOHRkFFVTZ') {
+      subscriptionType = 'pro';
+      duration = 'monthly';
+    } else if (planId === 'plan_PKhfVyO6JCxaeR') {
+      subscriptionType = 'pro';
+      duration = 'yearly';
+    } else {
+      return res.status(400).json({ error: 'Invalid plan ID' });
     }
-    res.json(order);
-  } catch (error) {
-    console.log(error);
-    res.status(500).send("Error");
-  }
-});
 
-app.post("/validate", async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenant , user_id} =
-    req.body;
-    console.log(req.body,"razorpay")
-
-    const razorpay = new Razorpay({
-      key_id: "rzp_live_L6Fy6yBDycyCzw",
-      key_secret: "mRcMlDUqNU21VNSiVUi9pxpg",
+    const interval = duration === 'monthly' ? 1 : 12;
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: planId,
+      total_count: interval,
+      customer_notify: 1
     });
-
-  const sha = crypto.createHmac("sha256", "mRcMlDUqNU21VNSiVUi9pxpg");
-  sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-  const digest = sha.digest("hex");
-  if (digest !== razorpay_signature) {
-    return res.status(400).json({ msg: "Transaction is not legit!" });
-  }
-  const order = await razorpay.orders.fetch(razorpay_order_id);
-  console.log(order,"order")
-  console.log(order.amount,"order amount")
-  let subscriptionType;
-  let subscription_duration;
-  let subscription_date;
-  
-  if (order.amount === 1 * 100) {
-    subscriptionType = "pro";
-    subscription_duration="monthly";
-    subscription_date = new Date().toISOString().split('T')[0];
-  }else {
-    return res.status(400).json({ msg: "Invalid amount for subscription" });
-  }
-
-  if (!user_id || !subscriptionType) {
-    console.error("user_id or subscriptionType is missing:", { user_id, subscriptionType });
-    return res.status(400).json({ msg: "Missing required parameters" });
-  }
-  let connection;
-  try {
-     connection = await pool.getConnection();
-
-    const updateSubscriptionQuery = `
-      UPDATE users 
-      SET subscription_type = ?, subscription_duration = ?, subscription_date = ? 
-      WHERE uid = ?`;
-    await connection.execute(updateSubscriptionQuery, [subscriptionType, subscription_duration, subscription_date, user_id]);
 
     res.json({
-      msg: "success",
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
+      id: subscription.id,
+      status: subscription.status,
+      message: 'Subscription created successfully',
       subscriptionType,
-      subscription_duration,
-      subscription_date
+      duration
     });
   } catch (error) {
-    console.error("Error updating subscription:", error);
-    res.status(500).json({ msg: "Failed to update subscription" });
-  } finally {
-    connection.release();
+    console.error('Error creating subscription:', error);
+    res.status(500).json({ error: 'Failed to create subscription' });
   }
 });
 
 
+// Validate subscription and store details
+app.post('/validate-subscription', async (req, res) => {
+  const {
+    razorpay_subscription_id,
+    razorpay_payment_id,
+    razorpay_signature,
+    planId,
+    user_id
+  } = req.body;
+
+  try {
+    const respBody = {
+      subscription_id: razorpay_subscription_id,
+      payment_id: razorpay_payment_id
+    };
+    
+    const secret = "mGm9bAlPYmCMSgyj49LyOeps";
+
+    // Validate the signature using Razorpay SDK function
+    const isValid = validatePaymentVerification(respBody, razorpay_signature, secret);
+
+    if (isValid) {
+      // Signature is valid, proceed with your logic
+      const subscription_date = new Date().toISOString().split('T')[0];
+      const expiry_date = new Date(subscription_date);
+
+      let subscriptionType;
+      let duration;
+
+      if (planId === 'plan_PKKqYOHRkFFVTZ') {
+        subscriptionType = 'pro';
+        duration = 'monthly';
+        expiry_date.setMonth(expiry_date.getMonth() + 1);
+      } else if (planId === 'plan_PKhfVyO6JCxaeR') {
+        subscriptionType = 'pro';
+        duration = 'yearly';
+        expiry_date.setFullYear(expiry_date.getFullYear() + 1);
+      } else {
+        subscriptionType = 'free';
+        duration = 'monthly';
+      }
+
+      // Database update for user's subscription
+      const updateSubscriptionQuery = `
+        UPDATE users
+        SET 
+          subscription_type = ?, 
+          subscription_duration = ?, 
+          subscription_date = ?, 
+          expiry_date = ?, 
+          subscription_status = 'active',
+          razorpay_subscription_id = ? 
+        WHERE uid = ?
+      `;
+
+      const connection = await pool.getConnection();
+      await connection.execute(updateSubscriptionQuery, [
+        subscriptionType,
+        duration,
+        subscription_date,
+        expiry_date,
+        razorpay_subscription_id,
+        user_id
+      ]);
+
+      connection.release();
+
+      res.json({ msg: 'success', subscriptionType });
+    } else {
+      res.status(400).json({ msg: 'Payment validation failed' });
+    }
+  } catch (error) {
+    console.error('Error validating payment:', error);
+    res.status(500).json({ error: 'Validation error' });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
