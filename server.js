@@ -13,7 +13,6 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
 
-
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
 
@@ -572,8 +571,8 @@ app.post('/create-subscription', async (req, res) => {
   console.log(req.body,"create-subscription")
   try {
     const razorpay = new Razorpay({
-      key_id: "rzp_test_pMR0oNtQh7JOlN",
-      key_secret: "mGm9bAlPYmCMSgyj49LyOeps",
+      key_id: process.env.RAZORPAY_TEST_KEY_ID,
+      key_secret: process.env.RAZORPAY_TEST_KEY_SECRET,
     });
     
     const { planId, customerEmail } = req.body;
@@ -626,7 +625,7 @@ app.post('/validate-subscription', async (req, res) => {
       payment_id: razorpay_payment_id
     };
     
-    const secret = "mGm9bAlPYmCMSgyj49LyOeps";
+    const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
 
     // Validate the signature using Razorpay SDK function
     const isValid = validatePaymentVerification(respBody, razorpay_signature, secret);
