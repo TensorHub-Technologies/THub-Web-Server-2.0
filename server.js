@@ -11,6 +11,7 @@ const jwt = require("jsonwebtoken");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
@@ -392,7 +393,6 @@ app.post("/userdata", async (req, res) => {
 
     const fetchUser = `SELECT * FROM users WHERE uid = ?`;
     const user = await connection.execute(fetchUser, [userId]);
-    console.log("sent user data: ", user[0]);
     connection.release();
     res.status(200).send(user[0]);
   } catch (error) { 
@@ -566,88 +566,148 @@ app.post("/reset-password/:token", async (req, res) => {
   
 //razorpay Code
 app.use(express.urlencoded({ extended: false }));
+  const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, duration) => {
+    const subscription_date = new Date().toISOString().split('T')[0];
+    const expiry_date = new Date(subscription_date);
 
-app.post("/order", async (req, res) => {
-  try {
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_SECRET,
-    });
-
-    const options = req.body;
-    const order = await razorpay.orders.create(options);
-
-    if (!order) {
-      return res.status(500).send("Error");
+    if (duration === 'monthly') {
+      expiry_date.setMonth(expiry_date.getMonth() + 1);
+    } else if (duration === 'yearly') {
+      expiry_date.setFullYear(expiry_date.getFullYear() + 1);
     }
-    res.json(order);
-  } catch (error) {
-    console.log(error);
-    res.status(500).send("Error");
-  }
-});
 
-app.post("/validate", async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenant , user_id} =
-    req.body;
-    console.log(req.body,"razorpay")
+    const query = `
+      UPDATE users
+      SET 
+        subscription_type = ?, 
+        subscription_duration = ?, 
+        subscription_date = ?, 
+        expiry_date = ?, 
+        subscription_status = 'active',
+        razorpay_subscription_id = ?
+      WHERE uid = ?
+    `;
 
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_SECRET,
-    });
-
-  const sha = crypto.createHmac("sha256", "mRcMlDUqNU21VNSiVUi9pxpg");
-  sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-  const digest = sha.digest("hex");
-  if (digest !== razorpay_signature) {
-    return res.status(400).json({ msg: "Transaction is not legit!" });
-  }
-  const order = await razorpay.orders.fetch(razorpay_order_id);
-  console.log(order,"order")
-  console.log(order.amount,"order amount")
-  let subscriptionType;
-  let subscription_duration;
-  let subscription_date;
-  
-  if (order.amount === 1 * 100) {
-    subscriptionType = "pro";
-    subscription_duration="monthly";
-    subscription_date = new Date().toISOString().split('T')[0];
-  }else {
-    return res.status(400).json({ msg: "Invalid amount for subscription" });
-  }
-
-  if (!user_id || !subscriptionType) {
-    console.error("user_id or subscriptionType is missing:", { user_id, subscriptionType });
-    return res.status(400).json({ msg: "Missing required parameters" });
-  }
-  let connection;
-  try {
-     connection = await pool.getConnection();
-
-    const updateSubscriptionQuery = `
-      UPDATE users 
-      SET subscription_type = ?, subscription_duration = ?, subscription_date = ? 
-      WHERE uid = ?`;
-    await connection.execute(updateSubscriptionQuery, [subscriptionType, subscription_duration, subscription_date, user_id]);
-
-    res.json({
-      msg: "success",
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
+    const connection = await pool.getConnection();
+    await connection.execute(query, [
       subscriptionType,
-      subscription_duration,
-      subscription_date
-    });
-  } catch (error) {
-    console.error("Error updating subscription:", error);
-    res.status(500).json({ msg: "Failed to update subscription" });
-  } finally {
+      duration,
+      subscription_date,
+      expiry_date,
+      subscriptionId,
+      userId
+    ]);
     connection.release();
-  }
-});
+  };
 
+  app.post('/create-subscription', async (req, res) => {
+    try {
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_TEST_KEY_ID,
+        key_secret: process.env.RAZORPAY_TEST_KEY_SECRET,
+      });
+  
+      const { planId, customerEmail } = req.body;
+  
+      // Map Plan ID to Subscription Type and Duration
+      let subscriptionType, duration;
+      if (planId === 'plan_PKKqYOHRkFFVTZ') {
+        subscriptionType = 'pro';
+        duration = 'monthly';
+      } else if (planId === 'plan_PKhfVyO6JCxaeR') {
+        subscriptionType = 'pro';
+        duration = 'yearly';
+      } else {
+        return res.status(400).json({ error: 'Invalid plan ID' });
+      }
+  
+      // Determine total_count based on duration
+      const interval = duration === 'monthly' ? 1 : 12;
+  
+      // Create a subscription on Razorpay
+      const subscription = await razorpay.subscriptions.create({
+        plan_id: planId,
+        total_count: interval,
+        customer_notify: 1, 
+      });
+  
+      res.json({
+        id: subscription.id,
+        status: subscription.status,
+        message: 'Subscription created successfully',
+        subscriptionType,
+        duration,
+      });
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      res.status(500).json({ error: 'Failed to create subscription' });
+    }
+  });
+
+  app.post('/razorpay-webhook', async (req, res) => {
+    const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
+  
+    try {
+      const signature = req.headers['x-razorpay-signature'];
+      const isValid = validatePaymentVerification(req.body, signature, secret);
+  
+      if (!isValid) {
+        return res.status(400).json({ error: 'Invalid signature' });
+      }
+  
+      const event = req.body.event;
+  
+      if (event === 'subscription.activated') {
+        const { subscription_id, customer_id } = req.body.payload.subscription.entity;
+        console.log(`Subscription activated: ${subscription_id}`);
+      } else if (event === 'payment.failed') {
+        const { payment_id, error } = req.body.payload.payment.entity;
+  
+        console.error(`Payment failed: ${payment_id}, Reason: ${error.reason}`);
+      }
+  
+      res.status(200).json({ status: 'success' });
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post('/validate-subscription', async (req, res) => {
+    const {
+      razorpay_subscription_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      planId,
+      user_id
+    } = req.body;
+
+    try {
+      const respBody = {
+        subscription_id: razorpay_subscription_id,
+        payment_id: razorpay_payment_id
+      };
+
+      const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
+
+      // Validate the signature
+      const isValid = validatePaymentVerification(respBody, razorpay_signature, secret);
+
+      if (isValid) {
+        const subscriptionType = 'pro';
+        const duration = planId === 'plan_PKKqYOHRkFFVTZ' ? 'monthly' : 'yearly';
+
+        await updateSubscriptionInDB(razorpay_subscription_id, user_id, subscriptionType, duration);
+
+        res.json({ msg: 'success', subscriptionType });
+      } else {
+        res.status(400).json({ msg: 'Payment validation failed' });
+      }
+    } catch (error) {
+      console.error('Error validating payment:', error);
+      res.status(500).json({ error: 'Validation error' });
+    }
+  });
 
 
 app.listen(PORT, () => {
