@@ -720,7 +720,7 @@ app.use(express.urlencoded({ extended: false }));
       const subscription = await razorpay.subscriptions.create({
         plan_id: planId,
         total_count: interval,
-        customer_notify: 1, // Notify the customer via Razorpay
+        customer_notify: 1, 
       });
   
       res.json({
