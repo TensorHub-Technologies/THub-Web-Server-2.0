@@ -11,9 +11,10 @@ const jwt = require("jsonwebtoken");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 2000;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
@@ -59,6 +60,7 @@ app.get("/", (req, res) => {
   res.status(200).send({ message: "Thub-Web-Server-2.0.....", url});
 });
 
+
 app.post("/api/auth/google", async (req, res) => {
   const { code } = req.body;
   console.log(code, "from request body");
@@ -95,12 +97,14 @@ app.post("/api/auth/google", async (req, res) => {
     );
 
     let subscription_type = "free";
+    let isNewUser = false;
 
     if (rows.length > 0) {
       subscription_type = rows[0].subscription_type || "free";
     }
 
     if (rows.length === 0) {
+      isNewUser = true;
       const insertUserQuery = `
         INSERT INTO users (uid, email, access_token, login_type, name, picture, subscription_type)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -132,6 +136,38 @@ app.post("/api/auth/google", async (req, res) => {
 
     connection.release();
 
+    
+    // Send welcome email if it's a new user
+    if (isNewUser) {
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Welcome to T-Hub!",
+        text: `Hi ${name},\n\nWelcome to T-Hub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe T-Hub Team`,
+        html: `<p>Hi <strong>${name}</strong>,</p>
+               <p>Welcome to T-Hub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
+               <p>Best regards,<br>The T-Hub Team</p>`,
+      };
+
+      console.log("Sending welcome email to:", email);
+
+      try {
+        await nodemailer.createTransport({
+          host: 'smtp.privateemail.com', 
+          port: 465, 
+          secure: true, 
+          auth: {
+            user: 'no-reply@thub.tech', 
+            pass: process.env.NO_REPLY_MAIL_PASSWORD,
+          },
+        }).sendMail(mailOptions);
+      
+        console.log("Welcome email sent successfully");
+      } catch (emailError) {
+        console.error("Failed to send welcome email:", emailError.message);
+      }
+    }
+
     res.json({ id_token, access_token, user: payload, userId: userId });
   } catch (error) {
     console.error(
@@ -145,23 +181,49 @@ app.post("/api/auth/google", async (req, res) => {
 // github
 app.get("/getAccessToken", async (req, res) => {
   try {
-    const params = new URLSearchParams({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
-      code: req.query.code,
-    });
+    let params;
 
+    if (process.env.Github_hostname === "local") {
+      params = new URLSearchParams({
+        client_id: process.env.Github_ClientId_Local,
+        client_secret: process.env.Github_Secret_Local,
+        code: req.query.code,
+      });
+    } else if (process.env.Github_hostname === "app") {
+      params = new URLSearchParams({
+        client_id: process.env.Github_ClientId_app,
+        client_secret: process.env.Github_Secret_App,
+        code: req.query.code,
+      });
+    } else if (process.env.Github_hostname === "demo") {
+      params = new URLSearchParams({
+        client_id: process.env.Github_ClientId_demo,
+        client_secret: process.env.Github_Secret_Demo,
+        code: req.query.code,
+      });
+    } else {
+      return res.status(400).json({ error: "Invalid Github hostname" });
+    }
+
+    console.log('Sending request to GitHub with params:', params.toString());
     const { data } = await axios.post(
       "https://github.com/login/oauth/access_token",
       params.toString(),
       {
         headers: {
           Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
         },
       }
     );
 
-    console.log(data, "Access Token Response");
+    console.log('GitHub Response:', data);
+    
+    if (data.error) {
+      console.error("GitHub OAuth error:", data.error_description);
+      return res.status(500).json({ error: data.error_description });
+    }
+
     res.json(data);
   } catch (error) {
     console.error("Error fetching access token:", error);
@@ -374,6 +436,37 @@ app.post("/user", async (req, res) => {
       subscription_date || null,
       workspace || null,
     ]);
+    
+    // Send welcome email to the new user
+    const mailOptions = {
+      from: "no-reply@thub.tech",  
+      to: email,
+      subject: "Welcome to T-Hub!",
+      text: `Hi ${name},\n\nWelcome to T-Hub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe T-Hub Team`,
+      html: `<p>Hi <strong>${name}</strong>,</p>
+             <p>Welcome to T-Hub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
+             <p>Best regards,<br>The T-Hub Team</p>`,
+    };
+
+    console.log("Sending welcome email to:", email);
+
+    try {
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.privateemail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: "no-reply@thub.tech",
+          pass: process.env.NO_REPLY_MAIL_PASSWORD,  
+        },
+      });
+
+      await transporter.sendMail(mailOptions);
+      console.log("Welcome email sent successfully");
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError.message);
+    }
+
     res.status(200).json({ message: "User successfully added", userId: uid, workspace: null });
     connection.release();
   } catch (error) {
@@ -392,7 +485,6 @@ app.post("/userdata", async (req, res) => {
 
     const fetchUser = `SELECT * FROM users WHERE uid = ?`;
     const user = await connection.execute(fetchUser, [userId]);
-    console.log("sent user data: ", user[0]);
     connection.release();
     res.status(200).send(user[0]);
   } catch (error) { 
@@ -566,88 +658,148 @@ app.post("/reset-password/:token", async (req, res) => {
   
 //razorpay Code
 app.use(express.urlencoded({ extended: false }));
+  const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, duration) => {
+    const subscription_date = new Date().toISOString().split('T')[0];
+    const expiry_date = new Date(subscription_date);
 
-app.post("/order", async (req, res) => {
-  try {
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_SECRET,
-    });
-
-    const options = req.body;
-    const order = await razorpay.orders.create(options);
-
-    if (!order) {
-      return res.status(500).send("Error");
+    if (duration === 'monthly') {
+      expiry_date.setMonth(expiry_date.getMonth() + 1);
+    } else if (duration === 'yearly') {
+      expiry_date.setFullYear(expiry_date.getFullYear() + 1);
     }
-    res.json(order);
-  } catch (error) {
-    console.log(error);
-    res.status(500).send("Error");
-  }
-});
 
-app.post("/validate", async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenant , user_id} =
-    req.body;
-    console.log(req.body,"razorpay")
+    const query = `
+      UPDATE users
+      SET 
+        subscription_type = ?, 
+        subscription_duration = ?, 
+        subscription_date = ?, 
+        expiry_date = ?, 
+        subscription_status = 'active',
+        razorpay_subscription_id = ?
+      WHERE uid = ?
+    `;
 
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_SECRET,
-    });
-
-  const sha = crypto.createHmac("sha256", "mRcMlDUqNU21VNSiVUi9pxpg");
-  sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-  const digest = sha.digest("hex");
-  if (digest !== razorpay_signature) {
-    return res.status(400).json({ msg: "Transaction is not legit!" });
-  }
-  const order = await razorpay.orders.fetch(razorpay_order_id);
-  console.log(order,"order")
-  console.log(order.amount,"order amount")
-  let subscriptionType;
-  let subscription_duration;
-  let subscription_date;
-  
-  if (order.amount === 1 * 100) {
-    subscriptionType = "pro";
-    subscription_duration="monthly";
-    subscription_date = new Date().toISOString().split('T')[0];
-  }else {
-    return res.status(400).json({ msg: "Invalid amount for subscription" });
-  }
-
-  if (!user_id || !subscriptionType) {
-    console.error("user_id or subscriptionType is missing:", { user_id, subscriptionType });
-    return res.status(400).json({ msg: "Missing required parameters" });
-  }
-  let connection;
-  try {
-     connection = await pool.getConnection();
-
-    const updateSubscriptionQuery = `
-      UPDATE users 
-      SET subscription_type = ?, subscription_duration = ?, subscription_date = ? 
-      WHERE uid = ?`;
-    await connection.execute(updateSubscriptionQuery, [subscriptionType, subscription_duration, subscription_date, user_id]);
-
-    res.json({
-      msg: "success",
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
+    const connection = await pool.getConnection();
+    await connection.execute(query, [
       subscriptionType,
-      subscription_duration,
-      subscription_date
-    });
-  } catch (error) {
-    console.error("Error updating subscription:", error);
-    res.status(500).json({ msg: "Failed to update subscription" });
-  } finally {
+      duration,
+      subscription_date,
+      expiry_date,
+      subscriptionId,
+      userId
+    ]);
     connection.release();
-  }
-});
+  };
 
+  app.post('/create-subscription', async (req, res) => {
+    try {
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_TEST_KEY_ID,
+        key_secret: process.env.RAZORPAY_TEST_KEY_SECRET,
+      });
+  
+      const { planId, customerEmail } = req.body;
+  
+      // Map Plan ID to Subscription Type and Duration
+      let subscriptionType, duration;
+      if (planId === 'plan_PKKqYOHRkFFVTZ') {
+        subscriptionType = 'pro';
+        duration = 'monthly';
+      } else if (planId === 'plan_PKhfVyO6JCxaeR') {
+        subscriptionType = 'pro';
+        duration = 'yearly';
+      } else {
+        return res.status(400).json({ error: 'Invalid plan ID' });
+      }
+  
+      // Determine total_count based on duration
+      const interval = duration === 'monthly' ? 1 : 12;
+  
+      // Create a subscription on Razorpay
+      const subscription = await razorpay.subscriptions.create({
+        plan_id: planId,
+        total_count: interval,
+        customer_notify: 1, // Notify the customer via Razorpay
+      });
+  
+      res.json({
+        id: subscription.id,
+        status: subscription.status,
+        message: 'Subscription created successfully',
+        subscriptionType,
+        duration,
+      });
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      res.status(500).json({ error: 'Failed to create subscription' });
+    }
+  });
+
+  app.post('/razorpay-webhook', async (req, res) => {
+    const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
+  
+    try {
+      const signature = req.headers['x-razorpay-signature'];
+      const isValid = validatePaymentVerification(req.body, signature, secret);
+  
+      if (!isValid) {
+        return res.status(400).json({ error: 'Invalid signature' });
+      }
+  
+      const event = req.body.event;
+  
+      if (event === 'subscription.activated') {
+        const { subscription_id, customer_id } = req.body.payload.subscription.entity;
+        console.log(`Subscription activated: ${subscription_id}`);
+      } else if (event === 'payment.failed') {
+        const { payment_id, error } = req.body.payload.payment.entity;
+  
+        console.error(`Payment failed: ${payment_id}, Reason: ${error.reason}`);
+      }
+  
+      res.status(200).json({ status: 'success' });
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post('/validate-subscription', async (req, res) => {
+    const {
+      razorpay_subscription_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      planId,
+      user_id
+    } = req.body;
+
+    try {
+      const respBody = {
+        subscription_id: razorpay_subscription_id,
+        payment_id: razorpay_payment_id
+      };
+
+      const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
+
+      // Validate the signature
+      const isValid = validatePaymentVerification(respBody, razorpay_signature, secret);
+
+      if (isValid) {
+        const subscriptionType = 'pro';
+        const duration = planId === 'plan_PKKqYOHRkFFVTZ' ? 'monthly' : 'yearly';
+
+        await updateSubscriptionInDB(razorpay_subscription_id, user_id, subscriptionType, duration);
+
+        res.json({ msg: 'success', subscriptionType });
+      } else {
+        res.status(400).json({ msg: 'Payment validation failed' });
+      }
+    } catch (error) {
+      console.error('Error validating payment:', error);
+      res.status(500).json({ error: 'Validation error' });
+    }
+  });
 
 
 app.listen(PORT, () => {
