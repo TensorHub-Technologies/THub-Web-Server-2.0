@@ -140,28 +140,27 @@ app.post("/api/auth/google", async (req, res) => {
     // Send welcome email if it's a new user
     if (isNewUser) {
       const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: '"THub" <no-reply@thub.tech>', 
         to: email,
-        subject: "Welcome to T-Hub!",
-        text: `Hi ${name},\n\nWelcome to T-Hub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe T-Hub Team`,
+        subject: "Welcome to THub!",
+        text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
         html: `<p>Hi <strong>${name}</strong>,</p>
-               <p>Welcome to T-Hub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
-               <p>Best regards,<br>The T-Hub Team</p>`,
+               <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
+               <p>Best regards,<br>The THub Team</p>`,
       };
-
+  
       console.log("Sending welcome email to:", email);
-
       try {
-        await nodemailer.createTransport({
-          host: 'smtp.privateemail.com', 
-          port: 465, 
-          secure: true, 
+        const transporter = nodemailer.createTransport({
+          host: 'smtp.privateemail.com',
+          port: 465,
+          secure: true,
           auth: {
-            user: 'no-reply@thub.tech', 
-            pass: process.env.NO_REPLY_MAIL_PASSWORD,
+            user: "no-reply@thub.tech",
+            pass: process.env.NO_REPLY_MAIL_PASSWORD,  
           },
-        }).sendMail(mailOptions);
-      
+        });
+        await transporter.sendMail(mailOptions);
         console.log("Welcome email sent successfully");
       } catch (emailError) {
         console.error("Failed to send welcome email:", emailError.message);
@@ -177,6 +176,117 @@ app.post("/api/auth/google", async (req, res) => {
     res.status(500).json({ error: "Failed to exchange code" });
   }
 });
+
+app.post("/microuser", async (req, res) => {
+  try {
+    const {
+      uid,
+      email,
+      name,
+      phone,
+      login_type,
+      subscription_type,
+      subscription_duration,
+      subscription_date,
+      workspace,
+    } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+    const connection = await pool.getConnection();
+    // Check if the user exists
+    const [rows] = await connection.execute(
+      `SELECT subscription_type FROM users WHERE email = ?`,
+      [email]
+    );
+
+    let isNewUser = false;
+
+    if (rows.length === 0) {
+      // New user
+      isNewUser = true;
+
+      const insertUserQuery = `
+        INSERT INTO users (
+          uid, email, phone, name, 
+          login_type, subscription_type, subscription_duration, 
+          subscription_date, workspace
+        ) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await connection.execute(insertUserQuery, [
+        uid || null,
+        email,
+        phone || null,
+        name || null,
+        login_type,
+        subscription_type || "free",
+        subscription_duration || "yearly",
+        subscription_date || new Date().toISOString().split("T")[0],
+        workspace || "default",
+      ]);
+    } else {
+      const updateUserQuery = `
+        UPDATE users 
+        SET phone = ?, name = ?, 
+            login_type = ?, subscription_type = ?, subscription_duration = ?, 
+            subscription_date = ?, workspace = ?
+        WHERE email = ?
+      `;
+
+      await connection.execute(updateUserQuery, [
+        phone || null,
+        name || null,
+        login_type,
+        subscription_type || "free",
+        subscription_duration || "yearly",
+        subscription_date || new Date().toISOString().split("T")[0],
+        workspace || "default",
+        email,
+      ]);
+    }
+
+    if (isNewUser) {
+      const mailOptions = {
+        from: '"THub" <no-reply@thub.tech>', 
+        to: email,
+        subject: "Welcome to THub!",
+        text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
+        html: `<p>Hi <strong>${name}</strong>,</p>
+               <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
+               <p>Best regards,<br>The THub Team</p>`,
+      };
+  
+      console.log("Sending welcome email to:", email);
+
+      try {
+        const transporter = nodemailer.createTransport({
+          host: 'smtp.privateemail.com',
+          port: 465,
+          secure: true,
+          auth: {
+            user: "no-reply@thub.tech",
+            pass: process.env.NO_REPLY_MAIL_PASSWORD,  
+          },
+        });
+        await transporter.sendMail(mailOptions);
+        console.log("Welcome email sent successfully");
+      } catch (emailError) {
+        console.error("Failed to send welcome email:", emailError.message);
+      }
+    }
+
+    res.json({
+      message: isNewUser ? "User created successfully" : "User updated successfully",
+    });
+  } catch (error) {
+    console.error("Error handling /microuser request:", error);
+    res.status(500).json({ error: "Failed to process request" });
+  }
+});
+
 
 // github
 app.get("/getAccessToken", async (req, res) => {
@@ -325,7 +435,7 @@ async function sendEmail({ recipient_email, OTP }) {
   
 
   const mailOptions = {
-    from: "no-reply@thub.tech", 
+    from: '"THub" <no-reply@thub.tech>', 
     to: recipient_email, 
     subject: "Your OTP Code",
     html: `
@@ -439,13 +549,13 @@ app.post("/user", async (req, res) => {
     
     // Send welcome email to the new user
     const mailOptions = {
-      from: "no-reply@thub.tech",  
+      from: '"THub" <no-reply@thub.tech>', 
       to: email,
-      subject: "Welcome to T-Hub!",
-      text: `Hi ${name},\n\nWelcome to T-Hub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe T-Hub Team`,
+      subject: "Welcome to THub!",
+      text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
       html: `<p>Hi <strong>${name}</strong>,</p>
-             <p>Welcome to T-Hub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
-             <p>Best regards,<br>The T-Hub Team</p>`,
+             <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
+             <p>Best regards,<br>The THub Team</p>`,
     };
 
     console.log("Sending welcome email to:", email);
@@ -606,7 +716,7 @@ app.post("/forgot-password", async (req, res) => {
     const resetURL = `${apiUrl}/auth/reset-password/${resetToken}?uid=${userId}`;
 
     await transporter.sendMail({
-      from: 'no-reply@thub.tech', 
+      from: '"THub" <no-reply@thub.tech>', 
       to: email,
       subject: "Password Reset Request",
       text: `Please use the following link to reset your password: ${resetURL}`,
