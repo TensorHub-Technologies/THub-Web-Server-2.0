@@ -194,95 +194,96 @@ app.post("/microuser", async (req, res) => {
     if (!email) {
       return res.status(400).json({ error: "Email is required" });
     }
+
     const connection = await pool.getConnection();
+
     // Check if the user exists
     const [rows] = await connection.execute(
-      `SELECT subscription_type FROM users WHERE email = ?`,
+      `SELECT * FROM users WHERE email = ?`,
       [email]
     );
 
-    let isNewUser = false;
-
-    if (rows.length === 0) {
-      // New user
-      isNewUser = true;
-
-      const insertUserQuery = `
-        INSERT INTO users (
-          uid, email, phone, name, 
-          login_type, subscription_type, subscription_duration, 
-          subscription_date, workspace
-        ) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-
-      await connection.execute(insertUserQuery, [
-        uid || null,
-        email,
-        phone || null,
-        name || null,
-        login_type,
-        subscription_type || "free",
-        subscription_duration || "yearly",
-        subscription_date || new Date().toISOString().split("T")[0],
-        workspace || "default",
-      ]);
-    } else {
-      const updateUserQuery = `
-        UPDATE users 
-        SET phone = ?, name = ?, 
-            login_type = ?, subscription_type = ?, subscription_duration = ?, 
-            subscription_date = ?, workspace = ?
-        WHERE email = ?
-      `;
-
-      await connection.execute(updateUserQuery, [
-        phone || null,
-        name || null,
-        login_type,
-        subscription_type || "free",
-        subscription_duration || "yearly",
-        subscription_date || new Date().toISOString().split("T")[0],
-        workspace || "default",
-        email,
-      ]);
+    if (rows.length > 0) {
+      const existingUser = rows[0];
+      await connection.release();
+      return res.json({
+        message: "User already exists",
+        user: existingUser,
+      });
     }
 
-    if (isNewUser) {
-      const mailOptions = {
-        from: '"THub" <no-reply@thub.tech>', 
-        to: email,
-        subject: "Welcome to THub!",
-        text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
-        html: `<p>Hi <strong>${name}</strong>,</p>
-               <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
-               <p>Best regards,<br>The THub Team</p>`,
-      };
-  
-      console.log("Sending welcome email to:", email);
+    const insertUserQuery = `
+      INSERT INTO users (
+        uid, email, phone, name, 
+        login_type, subscription_type, subscription_duration, 
+        subscription_date, workspace
+      ) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
 
-      try {
-        const transporter = nodemailer.createTransport({
-          host: 'smtp.privateemail.com',
-          port: 465,
-          secure: true,
-          auth: {
-            user: "no-reply@thub.tech",
-            pass: process.env.NO_REPLY_MAIL_PASSWORD,  
-          },
-        });
-        await transporter.sendMail(mailOptions);
-        console.log("Welcome email sent successfully");
-      } catch (emailError) {
-        console.error("Failed to send welcome email:", emailError.message);
-      }
+    await connection.execute(insertUserQuery, [
+      uid || null,
+      email,
+      phone || null,
+      name || null,
+      login_type,
+      subscription_type || "free",
+      subscription_duration || "yearly",
+      subscription_date || new Date().toISOString().split("T")[0],
+      workspace || "demo",
+    ]);
+
+    const newUser = {
+      uid: uid || null,
+      email,
+      phone: phone || null,
+      name: name || null,
+      login_type,
+      subscription_type: subscription_type || "free",
+      subscription_duration: subscription_duration || "yearly",
+      subscription_date: subscription_date || new Date().toISOString().split("T")[0],
+      workspace: workspace || "demo",
+    };
+
+    const mailOptions = {
+      from: '"THub" <no-reply@thub.tech>',
+      to: email,
+      subject: "Welcome to THub!",
+      text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
+      html: `<p>Hi <strong>${name}</strong>,</p>
+             <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
+             <p>Best regards,<br>The THub Team</p>`,
+    };
+
+    try {
+      const transporter = nodemailer.createTransport({
+        host: "smtp.privateemail.com",
+        port: 465,
+        secure: true,
+        auth: {
+          user: "no-reply@thub.tech",
+          pass: process.env.NO_REPLY_MAIL_PASSWORD,
+        },
+      });
+      await transporter.sendMail(mailOptions);
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", {
+        errorMessage: emailError.message,
+        stack: emailError.stack,
+      });
     }
+
+    await connection.release();
 
     res.json({
-      message: isNewUser ? "User created successfully" : "User updated successfully",
+      message: "User created successfully",
+      user: newUser,
     });
   } catch (error) {
-    console.error("Error handling /microuser request:", error);
+    console.error("Error handling /microuser request:", {
+      errorMessage: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({ error: "Failed to process request" });
   }
 });
