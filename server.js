@@ -60,6 +60,17 @@ app.get("/", (req, res) => {
   res.status(200).send({ message: "Thub-Web-Server-2.0.....", url});
 });
 
+app.post("/proUsers", async (req, res) => {
+ 
+  const { userDomain } = req.body;
+  const connection = await pool.getConnection();
+
+  const [rows] = await connection.execute(`SELECT count(1) as Count FROM users u Inner Join chat_flow c on c.tenantId = u.uid WHERE email LIKE '%${userDomain}%'`);
+  connection.release();
+
+  res.status(200).json(rows[0].Count);
+});
+
 
 app.post("/api/auth/google", async (req, res) => {
   const { code } = req.body;
