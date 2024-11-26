@@ -39,6 +39,7 @@ const corsOptions = {
       "http://localhost:2000",
       "https://thub.tech",
       "https://beta.thub.tech",
+      "http://35.193.70.249"
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
