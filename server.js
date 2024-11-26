@@ -13,6 +13,11 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
 
+// routes imports
+
+const enterpriceRoute=require("./routes/EnterpriceMail");
+
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
 
@@ -38,7 +43,7 @@ const corsOptions = {
       "http://localhost:8080",
       "http://localhost:2000",
       "https://thub.tech",
-      "https://beta.thub.tech",
+      "https://beta.thub.tech"
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
@@ -54,6 +59,11 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// enterprice route
+
+app.use("/enterprice-mail",enterpriceRoute)
+
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
@@ -271,7 +281,7 @@ async function sendEmail({ recipient_email, OTP }) {
     <p>Hi there,</p>
     <p>Your one-time password (OTP) for accessing THub.tech is:</p>
     <strong><span style="font-size: 18px;">${OTP}</span></strong>
-    <p>This code will expire in 1 minutes.</p>
+    <p>This code will expire in 5 minutes.</p>
     <p>Please enter this code to verify your identity.</p>
     <p>Thanks,</p>
     <p>The THub Team</p>
@@ -383,8 +393,6 @@ app.post("/user", async (req, res) => {
   }
 });
 
-
-
 app.post("/userdata", async (req, res) => {
   const { userId } = req.body;
   console.log(req.body, "****");
@@ -411,7 +419,6 @@ app.post("/loginUser", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // Query to get user data including workspace
     const [rows] = await connection.execute(
       `SELECT uid, email, password_hash, workspace 
          FROM users 
@@ -709,67 +716,6 @@ app.use(express.urlencoded({ extended: false }));
       res.status(500).json({ error: 'Validation error' });
     }
   });
-
-  // enterprice form
-
-  app.post("/enterprice-mail", async (req, res) => {
-    const {
-      firstName,
-      lastName,
-      companyName,
-      designation,
-      email,
-      contactNumber,
-      description,
-    } = req.body;
-  
-    try {
-      const mailOptions = {
-        from: "no-reply@thub.tech",
-        to: "admin@thub.tech",
-        subject: "New Enterprise Inquiry",
-        html: `
-          <h3>Enterprise Inquiry Details</h3>
-          <p><strong>First Name:</strong> ${firstName}</p>
-          <p><strong>Last Name:</strong> ${lastName}</p>
-          <p><strong>Company Name:</strong> ${companyName}</p>
-          <p><strong>Designation:</strong> ${designation}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Contact Number:</strong> ${contactNumber}</p>
-          <p><strong>Description:</strong> ${description}</p>
-        `,
-      };
-  
-      await transporter.sendMail(mailOptions);
-  
-      console.log("Email sent to admin@thub.tech");
-      
-      const connection = await pool.getConnection();
-
-      const insertInquiryQuery = `
-        INSERT INTO enterprise_inquiries 
-        (first_name, last_name, company_name, designation, email, contact_number, description) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
-      await connection.execute(insertInquiryQuery, [
-        firstName || null,
-        lastName || null,
-        companyName || null,
-        designation || null,
-        email || null,
-        contactNumber || null,
-        description || null,
-      ]);
-  
-      connection.release();
-      res.status(200).json({ message: "Inquiry submitted successfully" });
-    } catch (error) {
-      console.error("Error processing inquiry:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  
-
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
