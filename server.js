@@ -314,21 +314,23 @@ app.post("/microuser", async (req, res) => {
 // github
 app.get("/getAccessToken", async (req, res) => {
   try {
+    console.log(req.hostname,"req.hostname");
+    
     let params;
 
-    if (process.env.Github_hostname === "local") {
+    if (req.hostname === "localhost") {
       params = new URLSearchParams({
         client_id: process.env.Github_ClientId_Local,
         client_secret: process.env.Github_Secret_Local,
         code: req.query.code,
       });
-    } else if (process.env.Github_hostname === "app") {
+    } else if (req.hostname === "thub.tech") {
       params = new URLSearchParams({
         client_id: process.env.Github_ClientId_app,
         client_secret: process.env.Github_Secret_App,
         code: req.query.code,
       });
-    } else if (process.env.Github_hostname === "demo") {
+    } else if (req.hostname === "thub-web-2-0-0-378678297066.us-central1.run.app/") {
       params = new URLSearchParams({
         client_id: process.env.Github_ClientId_demo,
         client_secret: process.env.Github_Secret_Demo,
