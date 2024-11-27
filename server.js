@@ -330,7 +330,7 @@ app.get("/getAccessToken", async (req, res) => {
         client_secret: process.env.Github_Secret_App,
         code: req.query.code,
       });
-    } else if (req.hostname === "thub-web-2-0-0-378678297066.us-central1.run.app/") {
+    } else if (req.hostname === "thub-web-2-0-0-378678297066.us-central1.run.app") {
       params = new URLSearchParams({
         client_id: process.env.Github_ClientId_demo,
         client_secret: process.env.Github_Secret_Demo,
