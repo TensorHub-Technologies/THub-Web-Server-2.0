@@ -313,24 +313,31 @@ app.post("/microuser", async (req, res) => {
 
 // github
 app.get("/getAccessToken", async (req, res) => {
+  const headersSymbol = Object.getOwnPropertySymbols(req).find(sym => sym.toString() === 'Symbol(kHeaders)');
+  let origin;
+  if (headersSymbol) {
+    const headers = req[headersSymbol];    
+    origin = headers?.origin; 
+  } else {
+    console.log("Symbol(kHeaders) not found in req");
+  }
+  console.log(origin,"origin");
+  
   try {
-    console.log(req.hostname,"req.hostname");
-    
     let params;
-
-    if (req.hostname === "localhost") {
+    if (origin === "http://localhost:5173") {
       params = new URLSearchParams({
         client_id: process.env.Github_ClientId_Local,
         client_secret: process.env.Github_Secret_Local,
         code: req.query.code,
       });
-    } else if (req.hostname === "thub.tech") {
+    } else if (origin === "https://thub.tech") {
       params = new URLSearchParams({
         client_id: process.env.Github_ClientId_app,
         client_secret: process.env.Github_Secret_App,
         code: req.query.code,
       });
-    } else if (req.hostname === "thub-web-2-0-0-378678297066.us-central1.run.app") {
+    } else if (origin === "https://thub-web-2-0-0-378678297066.us-central1.run.app") {
       params = new URLSearchParams({
         client_id: process.env.Github_ClientId_demo,
         client_secret: process.env.Github_Secret_Demo,
