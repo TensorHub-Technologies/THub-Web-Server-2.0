@@ -12,12 +12,10 @@ const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
+require("./routes/NotifyMail")
 
 // routes imports
-
-const enterpriceRoute=require("./routes/EnterpriceMail");
-
-
+const enterpriceRoute = require("./routes/EnterpriceMail");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 2000;
 
@@ -63,16 +61,16 @@ app.use(cors(corsOptions));
 
 // enterprice route
 
-app.use("/enterprice-mail",enterpriceRoute)
+app.use("/enterprice-mail", enterpriceRoute)
 
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
-  res.status(200).send({ message: "Thub-Web-Server-2.0.....", url});
+  res.status(200).send({ message: "Thub-Web-Server-2.0.....", url });
 });
 
 app.post("/proUsers", async (req, res) => {
- 
+
   const { userDomain } = req.body;
   const connection = await pool.getConnection();
 
@@ -158,11 +156,11 @@ app.post("/api/auth/google", async (req, res) => {
 
     connection.release();
 
-    
+
     // Send welcome email if it's a new user
     if (isNewUser) {
       const mailOptions = {
-        from: '"THub" <no-reply@thub.tech>', 
+        from: '"THub" <no-reply@thub.tech>',
         to: email,
         subject: "Welcome to THub!",
         text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
@@ -170,7 +168,7 @@ app.post("/api/auth/google", async (req, res) => {
                <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
                <p>Best regards,<br>The THub Team</p>`,
       };
-  
+
       console.log("Sending welcome email to:", email);
       try {
         const transporter = nodemailer.createTransport({
@@ -179,7 +177,7 @@ app.post("/api/auth/google", async (req, res) => {
           secure: true,
           auth: {
             user: "no-reply@thub.tech",
-            pass: process.env.NO_REPLY_MAIL_PASSWORD,  
+            pass: process.env.NO_REPLY_MAIL_PASSWORD,
           },
         });
         await transporter.sendMail(mailOptions);
@@ -310,7 +308,6 @@ app.post("/microuser", async (req, res) => {
   }
 });
 
-
 // github
 app.get("/getAccessToken", async (req, res) => {
   const headersSymbol = Object.getOwnPropertySymbols(req).find(sym => sym.toString() === 'Symbol(kHeaders)');
@@ -360,7 +357,7 @@ app.get("/getAccessToken", async (req, res) => {
     );
 
     console.log('GitHub Response:', data);
-    
+
     if (data.error) {
       console.error("GitHub OAuth error:", data.error_description);
       return res.status(500).json({ error: data.error_description });
@@ -456,19 +453,19 @@ function generateRandomID() {
 }
 async function sendEmail({ recipient_email, OTP }) {
   const transporter = nodemailer.createTransport({
-    host: 'smtp.privateemail.com', 
-    port: 465, 
-    secure: true, 
+    host: 'smtp.privateemail.com',
+    port: 465,
+    secure: true,
     auth: {
-      user: 'no-reply@thub.tech', 
+      user: 'no-reply@thub.tech',
       pass: process.env.NO_REPLY_MAIL_PASSWORD,
     },
   });
-  
+
 
   const mailOptions = {
-    from: '"THub" <no-reply@thub.tech>', 
-    to: recipient_email, 
+    from: '"THub" <no-reply@thub.tech>',
+    to: recipient_email,
     subject: "Your OTP Code",
     html: `
     <p>Hi there,</p>
@@ -524,13 +521,13 @@ app.post("/check-email", async (req, res) => {
 // Endpoint to send OTP
 app.post("/send-otp", async (req, res) => {
   const { email } = req.body;
-  const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
-  otpStore.set(email, otp); 
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  otpStore.set(email, otp);
 
-  console.log(`OTP for ${email}: ${otp}`); 
+  console.log(`OTP for ${email}: ${otp}`);
 
   try {
-    await sendEmail({ recipient_email: email, OTP: otp }); 
+    await sendEmail({ recipient_email: email, OTP: otp });
     res.status(200).json({ message: "OTP sent successfully" });
   } catch (error) {
     console.error("Error sending OTP email:", error);
@@ -544,7 +541,7 @@ app.post("/verify-otp", (req, res) => {
   const storedOtp = otpStore.get(email);
 
   if (storedOtp === otp) {
-    otpStore.delete(email); 
+    otpStore.delete(email);
     res.status(200).json({ message: "OTP verified" });
   } else {
     res.status(400).json({ message: "Invalid OTP" });
@@ -560,7 +557,7 @@ app.post("/user", async (req, res) => {
     const name = `${firstName} ${lastName}`;
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
-    
+
     console.log("Inside server::user:", email, firstName, lastName, phone, password_hash, login_type, subscription_type, subscription_duration, subscription_date, workspace);
 
     const connection = await pool.getConnection();
@@ -578,10 +575,10 @@ app.post("/user", async (req, res) => {
       subscription_date || null,
       workspace || null,
     ]);
-    
+
     // Send welcome email to the new user
     const mailOptions = {
-      from: '"THub" <no-reply@thub.tech>', 
+      from: '"THub" <no-reply@thub.tech>',
       to: email,
       subject: "Welcome to THub!",
       text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
@@ -599,7 +596,7 @@ app.post("/user", async (req, res) => {
         secure: true,
         auth: {
           user: "no-reply@thub.tech",
-          pass: process.env.NO_REPLY_MAIL_PASSWORD,  
+          pass: process.env.NO_REPLY_MAIL_PASSWORD,
         },
       });
 
@@ -628,7 +625,7 @@ app.post("/userdata", async (req, res) => {
     const user = await connection.execute(fetchUser, [userId]);
     connection.release();
     res.status(200).send(user[0]);
-  } catch (error) { 
+  } catch (error) {
     console.error("Error creating new user:", error);
     res
       .status(500)
@@ -700,11 +697,11 @@ app.post("/updateUser", async (req, res) => {
 });
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.privateemail.com', 
-  port: 465, 
-  secure: true, 
+  host: 'smtp.privateemail.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: 'no-reply@thub.tech', 
+    user: 'no-reply@thub.tech',
     pass: process.env.NO_REPLY_MAIL_PASSWORD,
   },
 });
@@ -746,7 +743,7 @@ app.post("/forgot-password", async (req, res) => {
     const resetURL = `${apiUrl}/auth/reset-password/${resetToken}?uid=${userId}`;
 
     await transporter.sendMail({
-      from: '"THub" <no-reply@thub.tech>', 
+      from: '"THub" <no-reply@thub.tech>',
       to: email,
       subject: "Password Reset Request",
       text: `Please use the following link to reset your password: ${resetURL}`,
@@ -795,20 +792,20 @@ app.post("/reset-password/:token", async (req, res) => {
       .json({ message: "Error resetting password", error: error.message });
   }
 });
-  
+
 //razorpay Code
 app.use(express.urlencoded({ extended: false }));
-  const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, duration) => {
-    const subscription_date = new Date().toISOString().split('T')[0];
-    const expiry_date = new Date(subscription_date);
+const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, duration) => {
+  const subscription_date = new Date().toISOString().split('T')[0];
+  const expiry_date = new Date(subscription_date);
 
-    if (duration === 'monthly') {
-      expiry_date.setMonth(expiry_date.getMonth() + 1);
-    } else if (duration === 'yearly') {
-      expiry_date.setFullYear(expiry_date.getFullYear() + 1);
-    }
+  if (duration === 'monthly') {
+    expiry_date.setMonth(expiry_date.getMonth() + 1);
+  } else if (duration === 'yearly') {
+    expiry_date.setFullYear(expiry_date.getFullYear() + 1);
+  }
 
-    const query = `
+  const query = `
       UPDATE users
       SET 
         subscription_type = ?, 
@@ -820,126 +817,126 @@ app.use(express.urlencoded({ extended: false }));
       WHERE uid = ?
     `;
 
-    const connection = await pool.getConnection();
-    await connection.execute(query, [
+  const connection = await pool.getConnection();
+  await connection.execute(query, [
+    subscriptionType,
+    duration,
+    subscription_date,
+    expiry_date,
+    subscriptionId,
+    userId
+  ]);
+  connection.release();
+};
+
+app.post('/create-subscription', async (req, res) => {
+  try {
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_TEST_KEY_ID,
+      key_secret: process.env.RAZORPAY_TEST_KEY_SECRET,
+    });
+
+    const { planId, customerEmail } = req.body;
+
+    // Map Plan ID to Subscription Type and Duration
+    let subscriptionType, duration;
+    if (planId === 'plan_PKKqYOHRkFFVTZ') {
+      subscriptionType = 'pro';
+      duration = 'monthly';
+    } else if (planId === 'plan_PKhfVyO6JCxaeR') {
+      subscriptionType = 'pro';
+      duration = 'yearly';
+    } else {
+      return res.status(400).json({ error: 'Invalid plan ID' });
+    }
+
+    // Determine total_count based on duration
+    const interval = duration === 'monthly' ? 1 : 12;
+
+    // Create a subscription on Razorpay
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: planId,
+      total_count: interval,
+      customer_notify: 1,
+    });
+
+    res.json({
+      id: subscription.id,
+      status: subscription.status,
+      message: 'Subscription created successfully',
       subscriptionType,
       duration,
-      subscription_date,
-      expiry_date,
-      subscriptionId,
-      userId
-    ]);
-    connection.release();
-  };
+    });
+  } catch (error) {
+    console.error('Error creating subscription:', error);
+    res.status(500).json({ error: 'Failed to create subscription' });
+  }
+});
 
-  app.post('/create-subscription', async (req, res) => {
-    try {
-      const razorpay = new Razorpay({
-        key_id: process.env.RAZORPAY_TEST_KEY_ID,
-        key_secret: process.env.RAZORPAY_TEST_KEY_SECRET,
-      });
-  
-      const { planId, customerEmail } = req.body;
-  
-      // Map Plan ID to Subscription Type and Duration
-      let subscriptionType, duration;
-      if (planId === 'plan_PKKqYOHRkFFVTZ') {
-        subscriptionType = 'pro';
-        duration = 'monthly';
-      } else if (planId === 'plan_PKhfVyO6JCxaeR') {
-        subscriptionType = 'pro';
-        duration = 'yearly';
-      } else {
-        return res.status(400).json({ error: 'Invalid plan ID' });
-      }
-  
-      // Determine total_count based on duration
-      const interval = duration === 'monthly' ? 1 : 12;
-  
-      // Create a subscription on Razorpay
-      const subscription = await razorpay.subscriptions.create({
-        plan_id: planId,
-        total_count: interval,
-        customer_notify: 1, 
-      });
-  
-      res.json({
-        id: subscription.id,
-        status: subscription.status,
-        message: 'Subscription created successfully',
-        subscriptionType,
-        duration,
-      });
-    } catch (error) {
-      console.error('Error creating subscription:', error);
-      res.status(500).json({ error: 'Failed to create subscription' });
+app.post('/razorpay-webhook', async (req, res) => {
+  const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
+
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    const isValid = validatePaymentVerification(req.body, signature, secret);
+
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid signature' });
     }
-  });
 
-  app.post('/razorpay-webhook', async (req, res) => {
+    const event = req.body.event;
+
+    if (event === 'subscription.activated') {
+      const { subscription_id, customer_id } = req.body.payload.subscription.entity;
+      console.log(`Subscription activated: ${subscription_id}`);
+    } else if (event === 'payment.failed') {
+      const { payment_id, error } = req.body.payload.payment.entity;
+
+      console.error(`Payment failed: ${payment_id}, Reason: ${error.reason}`);
+    }
+
+    res.status(200).json({ status: 'success' });
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/validate-subscription', async (req, res) => {
+  const {
+    razorpay_subscription_id,
+    razorpay_payment_id,
+    razorpay_signature,
+    planId,
+    user_id
+  } = req.body;
+
+  try {
+    const respBody = {
+      subscription_id: razorpay_subscription_id,
+      payment_id: razorpay_payment_id
+    };
+
     const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
-  
-    try {
-      const signature = req.headers['x-razorpay-signature'];
-      const isValid = validatePaymentVerification(req.body, signature, secret);
-  
-      if (!isValid) {
-        return res.status(400).json({ error: 'Invalid signature' });
-      }
-  
-      const event = req.body.event;
-  
-      if (event === 'subscription.activated') {
-        const { subscription_id, customer_id } = req.body.payload.subscription.entity;
-        console.log(`Subscription activated: ${subscription_id}`);
-      } else if (event === 'payment.failed') {
-        const { payment_id, error } = req.body.payload.payment.entity;
-  
-        console.error(`Payment failed: ${payment_id}, Reason: ${error.reason}`);
-      }
-  
-      res.status(200).json({ status: 'success' });
-    } catch (error) {
-      console.error('Error processing webhook:', error);
-      res.status(500).json({ error: 'Internal server error' });
+
+    // Validate the signature
+    const isValid = validatePaymentVerification(respBody, razorpay_signature, secret);
+
+    if (isValid) {
+      const subscriptionType = 'pro';
+      const duration = planId === 'plan_PKKqYOHRkFFVTZ' ? 'monthly' : 'yearly';
+
+      await updateSubscriptionInDB(razorpay_subscription_id, user_id, subscriptionType, duration);
+
+      res.json({ msg: 'success', subscriptionType });
+    } else {
+      res.status(400).json({ msg: 'Payment validation failed' });
     }
-  });
-
-  app.post('/validate-subscription', async (req, res) => {
-    const {
-      razorpay_subscription_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      planId,
-      user_id
-    } = req.body;
-
-    try {
-      const respBody = {
-        subscription_id: razorpay_subscription_id,
-        payment_id: razorpay_payment_id
-      };
-
-      const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
-
-      // Validate the signature
-      const isValid = validatePaymentVerification(respBody, razorpay_signature, secret);
-
-      if (isValid) {
-        const subscriptionType = 'pro';
-        const duration = planId === 'plan_PKKqYOHRkFFVTZ' ? 'monthly' : 'yearly';
-
-        await updateSubscriptionInDB(razorpay_subscription_id, user_id, subscriptionType, duration);
-
-        res.json({ msg: 'success', subscriptionType });
-      } else {
-        res.status(400).json({ msg: 'Payment validation failed' });
-      }
-    } catch (error) {
-      console.error('Error validating payment:', error);
-      res.status(500).json({ error: 'Validation error' });
-    }
-  });
+  } catch (error) {
+    console.error('Error validating payment:', error);
+    res.status(500).json({ error: 'Validation error' });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
