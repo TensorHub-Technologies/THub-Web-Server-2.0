@@ -18,7 +18,7 @@ router.post("/", async (req, res) => {
     try {
       const mailOptions = {
         from: "no-reply@thub.tech",
-        to: "msganesh@digisprint.com",
+        to: "admin@thub.tech",
         subject: "New Enterprise Inquiry",
         html: `
           <h3>Enterprise Inquiry Details</h3>
