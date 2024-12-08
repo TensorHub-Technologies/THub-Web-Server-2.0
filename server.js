@@ -254,7 +254,7 @@ app.post("/microuser", async (req, res) => {
       subscription_type || "free",
       subscription_duration || "yearly",
       subscription_date || new Date().toISOString().split("T")[0],
-      workspace || "demo",
+      workspace || null,
     ]);
 
     const newUser = {
@@ -266,7 +266,7 @@ app.post("/microuser", async (req, res) => {
       subscription_type: subscription_type || "free",
       subscription_duration: subscription_duration || "yearly",
       subscription_date: subscription_date || new Date().toISOString().split("T")[0],
-      workspace: workspace || "demo",
+      workspace: workspace || null,
     };
 
     const mailOptions = {
