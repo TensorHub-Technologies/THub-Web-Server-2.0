@@ -12,9 +12,14 @@ const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
-require("./routes/NotifyMail")
 
 // routes imports
+require("./routes/NotifyMail")
+
+const imageUploadRoute=require("./routes/ImageUpload")
+//routes update user edit
+const userUpdateRoute=require("./routes/UpdateUser")
+
 const enterpriceRoute = require("./routes/EnterpriceMail");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 2000;
@@ -60,9 +65,13 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // enterprice route
-
 app.use("/enterprice-mail", enterpriceRoute)
 
+// imageUpload route
+app.use("/api/image-upload",imageUploadRoute)
+
+// update user fields
+app.use("/api/users/update",userUpdateRoute)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
@@ -937,6 +946,49 @@ app.post('/validate-subscription', async (req, res) => {
     res.status(500).json({ error: 'Validation error' });
   }
 });
+
+// image upload
+
+// (async function() {
+
+//   // Configuration
+//   cloudinary.config({ 
+//       cloud_name: 'dy4qacoxi', 
+//       api_key: '345912752692594', 
+//       api_secret: process.env.CLOUDINARY_SECRET 
+//   });
+  
+//   // Upload an image
+//    const uploadResult = await cloudinary.uploader
+//      .upload(
+//          'https://res.cloudinary.com/demo/image/upload/getting-started/shoes.jpg'
+//      )
+//      .catch((error) => {
+//          console.log(error);
+//      });
+  
+//   console.log(uploadResult);
+  
+//   // Optimize delivery by resizing and applying auto-format and auto-quality
+//   const optimizeUrl = cloudinary.url(uploadResult.public_id, {
+//       fetch_format: 'auto',
+//       quality: 'auto'
+//   }
+
+// );
+  
+//   console.log(optimizeUrl);
+  
+//   // Transform the image: auto-crop to square aspect_ratio
+//   const autoCropUrl = cloudinary.url('shoes', {
+//       crop: 'auto',
+//       gravity: 'auto',
+//       width: 500,
+//       height: 500,
+//   });
+  
+//   console.log(autoCropUrl);    
+// })();
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
