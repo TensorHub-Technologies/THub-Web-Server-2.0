@@ -17,6 +17,8 @@ const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-ut
 require("./routes/NotifyMail")
 
 const imageUploadRoute=require("./routes/ImageUpload")
+//routes update user edit
+const userUpdateRoute=require("./routes/UpdateUser")
 
 const enterpriceRoute = require("./routes/EnterpriceMail");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -67,6 +69,9 @@ app.use("/enterprice-mail", enterpriceRoute)
 
 // imageUpload route
 app.use("/api/image-upload",imageUploadRoute)
+
+// update user fields
+app.use("/api/users/update",userUpdateRoute)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;

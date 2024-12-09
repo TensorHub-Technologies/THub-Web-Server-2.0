@@ -5,17 +5,22 @@ const streamifier = require('streamifier');
 const pool = require("../config/db");
 const router = express.Router();
 
-// Multer memory storage setup
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const MAX_FILE_SIZE = 1 * 1024 * 1024;
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: MAX_FILE_SIZE,
+    },
+});
+
 
 // Cloudinary configuration
 cloudinary.config({
-    cloud_name: 'dy4qacoxi',
-    api_key: '345912752692594',
-    api_secret: process.env.CLOUDINARY_SECRET,
+    cloud_name: 'ds7idbzda',
+    api_key: '315321374352922',
+    api_secret: process.env.CLOUDINARY_SECRET || "HZTf5RB67U7Cz_BCC6prVC50sBg",
 });
-console.log(process.env.CLOUDINARY_SECRET, "cloudinary secret");
 
 // Image upload endpoint
 router.post('/', upload.single('file'), async (req, res) => {
