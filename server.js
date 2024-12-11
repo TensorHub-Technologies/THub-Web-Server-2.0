@@ -84,7 +84,7 @@ const users = [
   { id: 2, name: 'Bob', email: 'bob@example.com' },
 ];
 
-app.put('/users/:id', (req, res) => {
+app.post('/users/:id', (req, res) => {
   const userId = parseInt(req.params.id, 10);
   const { name, email } = req.body; 
 
