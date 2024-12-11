@@ -73,7 +73,7 @@ app.use("/api/image-upload",imageUploadRoute)
 // update user fields
 app.use("/api/users/update",userUpdateRoute)
 
-app.get("/", (req, res) => {
+app.put("/", (req, res) => {
   const url = process.env.URL;
   res.status(200).send({ message: "Thub-Web-Server-2.0.....", url });
 });
