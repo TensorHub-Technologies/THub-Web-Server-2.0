@@ -73,32 +73,11 @@ app.use("/api/image-upload",imageUploadRoute)
 // update user fields
 app.use("/api/users/update",userUpdateRoute)
 
-app.get("/", (req, res) => {
+app.put("/", (req, res) => {
   const url = process.env.URL;
   res.status(200).send({ message: "Thub-Web-Server-2.0.....", url });
 });
 
-
-const users = [
-  { id: 1, name: 'Alice', email: 'alice@example.com' },
-  { id: 2, name: 'Bob', email: 'bob@example.com' },
-];
-
-app.post('/users/:id', (req, res) => {
-  const userId = parseInt(req.params.id, 10);
-  const { name, email } = req.body; 
-
-  const user = users.find((u) => u.id === userId);
-
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
-  }
-
-  if (name) user.name = name;
-  if (email) user.email = email;
-
-  res.status(200).json({ message: 'User updated successfully', user });
-});
 
 app.post("/proUsers", async (req, res) => {
 
