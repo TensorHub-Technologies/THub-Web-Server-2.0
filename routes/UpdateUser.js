@@ -3,7 +3,7 @@ const router = express.Router()
 const pool = require("../config/db");
 
 
-router.post('/', async (req, res) => {
+router.put('/', async (req, res) => {
     const { field, value, userId } = req.body
     if (!['name', 'department'].includes(field)) {
         return res.status(400).json({ message: 'Invalid field' })
