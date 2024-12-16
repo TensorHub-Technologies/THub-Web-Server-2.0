@@ -16,11 +16,16 @@ const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-ut
 // routes imports
 require("./routes/NotifyMail")
 
-const imageUploadRoute=require("./routes/ImageUpload")
+const imageUploadRoute = require("./routes/ImageUpload")
+
 //routes update user edit
-const userUpdateRoute=require("./routes/UpdateUser")
+const userUpdateRoute = require("./routes/UpdateUser")
 
 const enterpriceRoute = require("./routes/EnterpriceMail");
+
+// routes workspace invite
+const inviteRoute=require("./routes/InviteUser")
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 2000;
 
@@ -68,10 +73,13 @@ app.use(cors(corsOptions));
 app.use("/enterprice-mail", enterpriceRoute)
 
 // imageUpload route
-app.use("/api/image-upload",imageUploadRoute)
+app.use("/api/image-upload", imageUploadRoute)
 
 // update user fields
-app.use("/api/users/update",userUpdateRoute)
+app.use("/api/users/update", userUpdateRoute)
+
+// invite user to workspace
+app.use("/api/invite",inviteRoute)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
@@ -333,13 +341,13 @@ app.get("/getAccessToken", async (req, res) => {
   const headersSymbol = Object.getOwnPropertySymbols(req).find(sym => sym.toString() === 'Symbol(kHeaders)');
   let origin;
   if (headersSymbol) {
-    const headers = req[headersSymbol];    
-    origin = headers?.origin; 
+    const headers = req[headersSymbol];
+    origin = headers?.origin;
   } else {
     console.log("Symbol(kHeaders) not found in req");
   }
-  console.log(origin,"origin");
-  
+  console.log(origin, "origin");
+
   try {
     let params;
     if (origin === "http://localhost:5173") {
@@ -693,20 +701,67 @@ app.post("/loginUser", async (req, res) => {
   }
 });
 
+// update workspace 
+
 app.post("/updateUser", async (req, res) => {
   const { uid, department, role, designation, company, workspace } = req.body;
+  if (!uid || !workspace) {
+    return res.status(400).json({ message: "User ID and workspace name are required" });
+  }
+
   try {
     const connection = await pool.getConnection();
-    const updateUserQuery = `UPDATE users SET department = ?, role = ?, designation = ?, company = ?, workspace = ? WHERE uid = ?`;
+
+    const [workspaceResult] = await connection.execute(
+      "SELECT id FROM workspaces WHERE name = ?",
+      [workspace]
+    );
+
+    let workspaceId;
+    if (workspaceResult.length > 0) {
+      workspaceId = workspaceResult[0].id;
+    } else {
+      const [newWorkspaceResult] = await connection.execute(
+        "INSERT INTO workspaces (name, created_by) VALUES (?, ?)",
+        [workspace, uid]
+      );
+      workspaceId = newWorkspaceResult.insertId;
+    }
+
+    const [userWorkspaceResult] = await connection.execute(
+      "SELECT * FROM workspace_users WHERE workspace_id = ? AND user_id = ?",
+      [workspaceId, uid]
+    );
+
+    if (userWorkspaceResult.length === 0) {
+      console.log(role,"role of the user")
+      await connection.execute(
+        "INSERT INTO workspace_users (workspace_id, user_id, role) VALUES (?, ?, ?)",
+        [workspaceId, uid, role || "member"] 
+      );
+    } else {
+      if (role) {
+        await connection.execute(
+          "UPDATE workspace_users SET role = ? WHERE workspace_id = ? AND user_id = ?",
+          [role, workspaceId, uid]
+        );
+      }
+    }
+    const updateUserQuery = `
+      UPDATE users 
+      SET department = ?, designation = ?, company = ?, workspace = ?
+      WHERE uid = ?
+    `;
     await connection.execute(updateUserQuery, [
       department,
-      role,
       designation,
       company,
       workspace,
       uid,
     ]);
+
     connection.release();
+
     res.status(200).send({ message: "User data updated successfully" });
   } catch (error) {
     console.error("Error updating user data:", error);
@@ -715,6 +770,7 @@ app.post("/updateUser", async (req, res) => {
       .json({ message: "Error updating user data", error: error.message });
   }
 });
+
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.privateemail.com',
@@ -957,49 +1013,6 @@ app.post('/validate-subscription', async (req, res) => {
     res.status(500).json({ error: 'Validation error' });
   }
 });
-
-// image upload
-
-// (async function() {
-
-//   // Configuration
-//   cloudinary.config({ 
-//       cloud_name: 'dy4qacoxi', 
-//       api_key: '345912752692594', 
-//       api_secret: process.env.CLOUDINARY_SECRET 
-//   });
-  
-//   // Upload an image
-//    const uploadResult = await cloudinary.uploader
-//      .upload(
-//          'https://res.cloudinary.com/demo/image/upload/getting-started/shoes.jpg'
-//      )
-//      .catch((error) => {
-//          console.log(error);
-//      });
-  
-//   console.log(uploadResult);
-  
-//   // Optimize delivery by resizing and applying auto-format and auto-quality
-//   const optimizeUrl = cloudinary.url(uploadResult.public_id, {
-//       fetch_format: 'auto',
-//       quality: 'auto'
-//   }
-
-// );
-  
-//   console.log(optimizeUrl);
-  
-//   // Transform the image: auto-crop to square aspect_ratio
-//   const autoCropUrl = cloudinary.url('shoes', {
-//       crop: 'auto',
-//       gravity: 'auto',
-//       width: 500,
-//       height: 500,
-//   });
-  
-//   console.log(autoCropUrl);    
-// })();
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
