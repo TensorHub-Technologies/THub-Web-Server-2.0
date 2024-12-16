@@ -86,6 +86,17 @@ app.get("/", (req, res) => {
   res.status(200).send({ message: "Server running.....", url });
 });
 
+app.post("/getProUsers", async (req, res) => {
+
+  const { proUserId } = req.body;
+  const connection = await pool.getConnection();
+  
+  const [rows] = await connection.execute(`SELECT count(1) as Count FROM users WHERE pro_user_id LIKE '%${proUserId}%'`);
+  connection.release();
+
+  res.status(200).json(rows[0].Count);
+});
+
 app.post("/proUsers", async (req, res) => {
 
   const { userDomain } = req.body;
