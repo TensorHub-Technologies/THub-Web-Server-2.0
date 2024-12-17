@@ -577,20 +577,21 @@ app.post("/verify-otp", (req, res) => {
 });
 
 // Endpoint to register a user
-app.post("/user", async (req, res) => {
+app.post("/user/register", async (req, res) => {
   try {
-    const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace } = req.body;
+    const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace,company,department,role } = req.body;
 
     const uid = generateRandomID();
+    console.log(uid,"user id")
     const name = `${firstName} ${lastName}`;
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    console.log("Inside server::user:", email, firstName, lastName, phone, password_hash, login_type, subscription_type, subscription_duration, subscription_date, workspace);
+    console.log("Inside server::user:", email, firstName, lastName, phone, password_hash, login_type, subscription_type, subscription_duration, subscription_date, workspace,company,department,role);
 
     const connection = await pool.getConnection();
 
-    const insertUserQuery = `INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date, workspace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const insertUserQuery = `INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date, workspace,company,department,role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)`;
     await connection.execute(insertUserQuery, [
       uid || null,
       email || null,
@@ -598,10 +599,13 @@ app.post("/user", async (req, res) => {
       login_type || null,
       name || null,
       password_hash || null,
-      subscription_type || null,
+      subscription_type || "free",
       subscription_duration || null,
       subscription_date || null,
       workspace || null,
+      company || null,
+      department || null,
+      role || null
     ]);
 
     // Send welcome email to the new user
@@ -634,7 +638,7 @@ app.post("/user", async (req, res) => {
       console.error("Failed to send welcome email:", emailError.message);
     }
 
-    res.status(200).json({ message: "User successfully added", userId: uid, workspace: null });
+    res.status(200).json({ message: "User successfully added", userId: uid, workspace: workspace });
     connection.release();
   } catch (error) {
     console.error("Error:", error);
