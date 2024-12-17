@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
             [workspaceId, email]
         );
 
-        const inviteLink = `https://${workspace}.thub.tech?theme=lite&uid=${uid}/join?email=${encodeURIComponent(email)}`;
+        const inviteLink = `https://${workspace}.thub.tech?theme=lite/join?email=${encodeURIComponent(email)}`;
 
         await transporter.sendMail({
             from: "no-reply@thub.tech",
