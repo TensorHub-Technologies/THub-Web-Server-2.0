@@ -1,11 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../config/db"); 
-const transporter = require("../config/mailer"); 
+const pool = require("../config/db");
+const transporter = require("../config/mailer");
 
 router.post('/', async (req, res) => {
-    const { email,workspace,uid } = req.body;
-    const workspaceId = 1;
+    const { email, workspace} = req.body;
+    function generateWorkspaceId() {
+        return Math.floor(100000 + Math.random() * 900000);
+    }
+    const workspaceId = generateWorkspaceId();
 
     if (!email) {
         return res.status(400).json({ message: 'Email is required.' });
@@ -13,11 +16,11 @@ router.post('/', async (req, res) => {
 
     try {
         const [users] = await pool.query(
-            'SELECT COUNT(*) AS userCount FROM invitations WHERE workspace_id = ?',
+            'SELECT COUNT(*) AS userCount FROM workspace_users WHERE workspace_id = ?',
             [workspaceId]
         );
 
-        if (users[0].userCount >= 4) {
+        if (users[0].userCount > 4) {
             return res.status(400).json({ message: 'User limit for this workspace has been reached.' });
         }
 

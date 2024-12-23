@@ -26,6 +26,9 @@ const enterpriceRoute = require("./routes/EnterpriceMail");
 // routes workspace invite
 const inviteRoute=require("./routes/InviteUser")
 
+// routes invite register
+const inviteRegister=require("./routes/InviteRegister")
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 2000;
 
@@ -80,6 +83,9 @@ app.use("/api/users/update", userUpdateRoute)
 
 // invite user to workspace
 app.use("/api/invite",inviteRoute)
+
+// invite Register user
+app.use("/user/invite/register",inviteRegister)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
@@ -738,19 +744,20 @@ app.post("/updateUser", async (req, res) => {
     );
 
     if (userWorkspaceResult.length === 0) {
-      console.log(role,"role of the user")
+      console.log(role, "role of the user");
       await connection.execute(
-        "INSERT INTO workspace_users (workspace_id, user_id, role) VALUES (?, ?, ?)",
-        [workspaceId, uid, role || "member"] 
+        "INSERT INTO workspace_users (workspace_id, user_id, role, workspace_name) VALUES (?, ?, ?, ?)",
+        [workspaceId, uid, role || "member", workspace]
       );
     } else {
       if (role) {
         await connection.execute(
-          "UPDATE workspace_users SET role = ? WHERE workspace_id = ? AND user_id = ?",
-          [role, workspaceId, uid]
+          "UPDATE workspace_users SET role = ?, workspace_name = ? WHERE workspace_id = ? AND user_id = ?",
+          [role, workspace, workspaceId, uid]
         );
       }
     }
+
     const updateUserQuery = `
       UPDATE users 
       SET department = ?, designation = ?, company = ?, workspace = ?
@@ -774,6 +781,7 @@ app.post("/updateUser", async (req, res) => {
       .json({ message: "Error updating user data", error: error.message });
   }
 });
+
 
 
 const transporter = nodemailer.createTransport({
