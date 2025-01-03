@@ -26,6 +26,9 @@ const enterpriceRoute = require("./routes/EnterpriceMail");
 // routes workspace invite
 const inviteRoute=require("./routes/InviteUser")
 
+// routes invite register
+const inviteRegister=require("./routes/InviteRegister")
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 2000;
 
@@ -80,6 +83,9 @@ app.use("/api/users/update", userUpdateRoute)
 
 // invite user to workspace
 app.use("/api/invite",inviteRoute)
+
+// invite Register user
+app.use("/user/invite/register",inviteRegister)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
@@ -709,6 +715,7 @@ app.post("/loginUser", async (req, res) => {
 
 app.post("/updateUser", async (req, res) => {
   const { uid, department, role, designation, company, workspace } = req.body;
+
   if (!uid || !workspace) {
     return res.status(400).json({ message: "User ID and workspace name are required" });
   }
@@ -732,25 +739,39 @@ app.post("/updateUser", async (req, res) => {
       workspaceId = newWorkspaceResult.insertId;
     }
 
+    const [userCountResult] = await connection.execute(
+      "SELECT COUNT(*) AS userCount FROM workspace_users WHERE workspace_name = ?",
+      [workspace]
+    );
+
+    const userCount = userCountResult[0].userCount;
+
+    if (userCount >= 5) {
+      connection.release();
+      return res.status(400).json({ message: `Workspace "${workspace}" already has the maximum of 5 users.` });
+    }
+
     const [userWorkspaceResult] = await connection.execute(
       "SELECT * FROM workspace_users WHERE workspace_id = ? AND user_id = ?",
       [workspaceId, uid]
     );
 
     if (userWorkspaceResult.length === 0) {
-      console.log(role,"role of the user")
+      console.log(role, "role of the user");
       await connection.execute(
-        "INSERT INTO workspace_users (workspace_id, user_id, role) VALUES (?, ?, ?)",
-        [workspaceId, uid, role || "member"] 
+        "INSERT INTO workspace_users (workspace_id, user_id, role, workspace_name) VALUES (?, ?, ?, ?)",
+        [workspaceId, uid, role || "member", workspace]
       );
     } else {
       if (role) {
         await connection.execute(
-          "UPDATE workspace_users SET role = ? WHERE workspace_id = ? AND user_id = ?",
-          [role, workspaceId, uid]
+          "UPDATE workspace_users SET role = ?, workspace_name = ? WHERE workspace_id = ? AND user_id = ?",
+          [role, workspace, workspaceId, uid]
         );
       }
     }
+
+    // Update user details in the `users` table
     const updateUserQuery = `
       UPDATE users 
       SET department = ?, designation = ?, company = ?, workspace = ?
@@ -769,12 +790,9 @@ app.post("/updateUser", async (req, res) => {
     res.status(200).send({ message: "User data updated successfully" });
   } catch (error) {
     console.error("Error updating user data:", error);
-    res
-      .status(500)
-      .json({ message: "Error updating user data", error: error.message });
+    res.status(500).json({ message: "Error updating user data", error: error.message });
   }
 });
-
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.privateemail.com',

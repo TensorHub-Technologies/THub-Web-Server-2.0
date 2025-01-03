@@ -1,39 +1,61 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../config/db"); 
-const transporter = require("../config/mailer"); 
+const pool = require("../config/db");
+const transporter = require("../config/mailer");
 
 router.post('/', async (req, res) => {
-    const { email,workspace,uid } = req.body;
-    const workspaceId = 1;
+    const { email, workspace } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ message: 'Email is required.' });
+    if (!email || !workspace) {
+        return res.status(400).json({ message: 'Email and workspace name are required.' });
     }
 
     try {
-        const [users] = await pool.query(
-            'SELECT COUNT(*) AS userCount FROM invitations WHERE workspace_id = ?',
+        const connection = await pool.getConnection();
+
+        const [workspaceResult] = await connection.query(
+            'SELECT id FROM workspaces WHERE name = ?',
+            [workspace]
+        );
+
+        let workspaceId;
+        if (workspaceResult.length > 0) {
+            workspaceId = workspaceResult[0].id;
+        } else {
+            const [newWorkspaceResult] = await connection.query(
+                'INSERT INTO workspaces (name, created_at) VALUES (?, NOW())',
+                [workspace]
+            );
+            workspaceId = newWorkspaceResult.insertId;
+        }
+
+        // Check if the workspace user count exceeds the limit
+        const [userCountResult] = await connection.query(
+            'SELECT COUNT(*) AS userCount FROM workspace_users WHERE workspace_id = ?',
             [workspaceId]
         );
 
-        if (users[0].userCount >= 4) {
+        if (userCountResult[0].userCount >= 5) {
+            connection.release();
             return res.status(400).json({ message: 'User limit for this workspace has been reached.' });
         }
 
-        await pool.query(
+        // Insert into the invitations table
+        await connection.query(
             'INSERT INTO invitations (workspace_id, email, invited_at) VALUES (?, ?, NOW())',
             [workspaceId, email]
         );
 
+        // Send the invitation email
         const inviteLink = `https://${workspace}.thub.tech?theme=lite/join?email=${encodeURIComponent(email)}`;
-
         await transporter.sendMail({
             from: "no-reply@thub.tech",
             to: email,
             subject: 'Workspace Invitation',
             text: `You have been invited to join the workspace. Click the link to accept: ${inviteLink}`,
         });
+
+        connection.release();
 
         res.status(200).json({ message: `Invitation sent successfully to ${email}` });
     } catch (error) {
