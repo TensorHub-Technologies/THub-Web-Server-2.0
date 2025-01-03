@@ -715,6 +715,7 @@ app.post("/loginUser", async (req, res) => {
 
 app.post("/updateUser", async (req, res) => {
   const { uid, department, role, designation, company, workspace } = req.body;
+
   if (!uid || !workspace) {
     return res.status(400).json({ message: "User ID and workspace name are required" });
   }
@@ -738,6 +739,18 @@ app.post("/updateUser", async (req, res) => {
       workspaceId = newWorkspaceResult.insertId;
     }
 
+    const [userCountResult] = await connection.execute(
+      "SELECT COUNT(*) AS userCount FROM workspace_users WHERE workspace_name = ?",
+      [workspace]
+    );
+
+    const userCount = userCountResult[0].userCount;
+
+    if (userCount >= 5) {
+      connection.release();
+      return res.status(400).json({ message: `Workspace "${workspace}" already has the maximum of 5 users.` });
+    }
+
     const [userWorkspaceResult] = await connection.execute(
       "SELECT * FROM workspace_users WHERE workspace_id = ? AND user_id = ?",
       [workspaceId, uid]
@@ -758,6 +771,7 @@ app.post("/updateUser", async (req, res) => {
       }
     }
 
+    // Update user details in the `users` table
     const updateUserQuery = `
       UPDATE users 
       SET department = ?, designation = ?, company = ?, workspace = ?
@@ -776,13 +790,9 @@ app.post("/updateUser", async (req, res) => {
     res.status(200).send({ message: "User data updated successfully" });
   } catch (error) {
     console.error("Error updating user data:", error);
-    res
-      .status(500)
-      .json({ message: "Error updating user data", error: error.message });
+    res.status(500).json({ message: "Error updating user data", error: error.message });
   }
 });
-
-
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.privateemail.com',
