@@ -960,13 +960,16 @@ app.post('/create-subscription', async (req, res) => {
     });
 
     const { planId, customerEmail } = req.body;
+    const planDetails = await razorpay.plans.fetch(planId);
+    const planAmount = planDetails.item.amount / 100; 
+    console.log(`Fetched plan details:`, planAmount);
 
     // Map Plan ID to Subscription Type and Duration
     let subscriptionType, duration;
     if (planId ==='plan_PguBI476fHCWGG') {
       subscriptionType = 'pro';
       duration = 'monthly';
-    } else if (planId === 'plan_PguW2OQ3reMkZs') {
+    } else if (planId === 'plan_PhI7FQUr7Jb47R') {
       subscriptionType = 'pro';
       duration = 'yearly';
     } else {
@@ -975,13 +978,14 @@ app.post('/create-subscription', async (req, res) => {
 
     // Determine total_count based on duration
     const interval = duration === 'monthly' ? 12 : 1;
-
+    console.log(interval,"interval")
     // Create a subscription on Razorpay
     const subscription = await razorpay.subscriptions.create({
       plan_id: planId,
       total_count: interval,
       customer_notify: 1,
     });
+
 
     res.json({
       id: subscription.id,
