@@ -29,6 +29,9 @@ const inviteRoute=require("./routes/InviteUser")
 // routes invite register
 const inviteRegister=require("./routes/InviteRegister")
 
+// routes paypal
+const paypalRoutes=require("./routes/Paypal")
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 2000;
 
@@ -86,6 +89,9 @@ app.use("/api/invite",inviteRoute)
 
 // invite Register user
 app.use("/user/invite/register",inviteRegister)
+
+// paypal subscription
+app.use("/api/paypal/subscription",paypalRoutes)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
@@ -585,35 +591,53 @@ app.post("/verify-otp", (req, res) => {
 // Endpoint to register a user
 app.post("/user/register", async (req, res) => {
   try {
-    const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace,company,department,role } = req.body;
+    const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace, company, department, role } = req.body;
 
     const uid = generateRandomID();
-    console.log(uid,"user id")
+    console.log(uid, "user id");
     const name = `${firstName} ${lastName}`;
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    console.log("Inside server::user:", email, firstName, lastName, phone, password_hash, login_type, subscription_type, subscription_duration, subscription_date, workspace,company,department,role);
+    console.log("Inside server::user:", email, firstName, lastName, phone, password_hash, login_type, subscription_type, subscription_duration, subscription_date, workspace, company, department, role);
 
     const connection = await pool.getConnection();
 
-    const insertUserQuery = `INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date, workspace,company,department,role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)`;
-    await connection.execute(insertUserQuery, [
-      uid || null,
-      email || null,
-      phone || null,
-      login_type || null,
-      name || null,
-      password_hash || null,
-      subscription_type || "free",
-      subscription_duration || null,
-      subscription_date || null,
-      workspace || null,
-      company || null,
-      department || null,
-      role || null
-    ]);
+    // Set the subscription date and calculate expiry date for free plan
+    const current_date = new Date();
+    const effective_subscription_date = subscription_date || current_date.toISOString().split("T")[0]; // Default to today's date if not provided
+    let expiry_date = null;
+    const subscription_status = "active";
 
+    if (subscription_type === "free") {
+      const expiryDateObj = new Date(effective_subscription_date);
+      expiryDateObj.setDate(expiryDateObj.getDate() + 90); 
+      expiry_date = expiryDateObj.toISOString().split("T")[0]; 
+    }
+    console.log(subscription_status,"subscription_status")
+    const insertUserQuery = `
+    INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date, expiry_date, workspace, company, department, role, subscription_status) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  await connection.execute(insertUserQuery, [
+    uid || null,
+    email || null,
+    phone || null,
+    login_type || null,
+    name || null,
+    password_hash || null,
+    subscription_type || "free",
+    subscription_duration || null,
+    effective_subscription_date,
+    expiry_date,
+    workspace || null,
+    company || null,
+    department || null,
+    role || null,
+    subscription_status || 'active',
+  ]);
+  
     // Send welcome email to the new user
     const mailOptions = {
       from: '"THub" <no-reply@thub.tech>',
@@ -651,6 +675,7 @@ app.post("/user/register", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 
 app.post("/userdata", async (req, res) => {
   const { userId } = req.body;
@@ -935,13 +960,16 @@ app.post('/create-subscription', async (req, res) => {
     });
 
     const { planId, customerEmail } = req.body;
+    const planDetails = await razorpay.plans.fetch(planId);
+    const planAmount = planDetails.item.amount / 100; 
+    console.log(`Fetched plan details:`, planAmount);
 
     // Map Plan ID to Subscription Type and Duration
     let subscriptionType, duration;
-    if (planId === 'plan_PKKqYOHRkFFVTZ') {
+    if (planId ==='plan_PguBI476fHCWGG') {
       subscriptionType = 'pro';
       duration = 'monthly';
-    } else if (planId === 'plan_PKhfVyO6JCxaeR') {
+    } else if (planId === 'plan_PhI7FQUr7Jb47R') {
       subscriptionType = 'pro';
       duration = 'yearly';
     } else {
@@ -949,14 +977,15 @@ app.post('/create-subscription', async (req, res) => {
     }
 
     // Determine total_count based on duration
-    const interval = duration === 'monthly' ? 1 : 12;
-
+    const interval = duration === 'monthly' ? 12 : 1;
+    console.log(interval,"interval")
     // Create a subscription on Razorpay
     const subscription = await razorpay.subscriptions.create({
       plan_id: planId,
       total_count: interval,
       customer_notify: 1,
     });
+
 
     res.json({
       id: subscription.id,
@@ -1022,7 +1051,7 @@ app.post('/validate-subscription', async (req, res) => {
 
     if (isValid) {
       const subscriptionType = 'pro';
-      const duration = planId === 'plan_PKKqYOHRkFFVTZ' ? 'monthly' : 'yearly';
+      const duration = planId === 'plan_PguBI476fHCWGG' ? 'monthly' : 'yearly';
 
       await updateSubscriptionInDB(razorpay_subscription_id, user_id, subscriptionType, duration);
 
