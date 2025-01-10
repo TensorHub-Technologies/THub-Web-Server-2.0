@@ -159,15 +159,23 @@ app.post("/api/auth/google", async (req, res) => {
     let subscription_type = "free";
     let isNewUser = false;
 
-    if (rows.length > 0) {
-      subscription_type = rows[0].subscription_type || "free";
+    // Set the subscription date and calculate expiry date for free plan
+    const current_date = new Date();
+    const subscription_date = current_date.toISOString().split("T")[0];
+    let expiry_date = null;
+    const subscription_status = "active";
+
+    if (subscription_type === "free") {
+      const expiryDateObj = new Date(subscription_date);
+      expiryDateObj.setDate(expiryDateObj.getDate() + 90);
+      expiry_date = expiryDateObj.toISOString().split("T")[0];
     }
 
     if (rows.length === 0) {
       isNewUser = true;
       const insertUserQuery = `
-        INSERT INTO users (uid, email, access_token, login_type, name, picture, subscription_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (uid, email, access_token, login_type, name, picture, subscription_type, subscription_date, expiry_date, subscription_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await connection.execute(insertUserQuery, [
         userId || null,
@@ -177,11 +185,14 @@ app.post("/api/auth/google", async (req, res) => {
         name || null,
         picture || null,
         subscription_type,
+        subscription_date,
+        expiry_date,
+        subscription_status,
       ]);
     } else {
       const updateUserQuery = `
         UPDATE users 
-        SET access_token = ?, login_type = ?, name = ?, picture = ?, subscription_type = ?
+        SET access_token = ?, login_type = ?, name = ?, picture = ?, subscription_type = ?, subscription_date = ?, expiry_date = ?, subscription_status = ?
         WHERE email = ?
       `;
       await connection.execute(updateUserQuery, [
@@ -190,12 +201,14 @@ app.post("/api/auth/google", async (req, res) => {
         name || null,
         picture || null,
         subscription_type,
+        subscription_date,
+        expiry_date,
+        subscription_status,
         email || null,
       ]);
     }
 
     connection.release();
-
 
     // Send welcome email if it's a new user
     if (isNewUser) {
@@ -206,7 +219,7 @@ app.post("/api/auth/google", async (req, res) => {
         text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
         html: `<p>Hi <strong>${name}</strong>,</p>
                <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
-               <p>Best regards,<br>The THub Team</p>`,
+               <p>Best regards,<br>The THub Team</p>`
       };
 
       console.log("Sending welcome email to:", email);
@@ -229,13 +242,11 @@ app.post("/api/auth/google", async (req, res) => {
 
     res.json({ id_token, access_token, user: payload, userId: userId });
   } catch (error) {
-    console.error(
-      "Error exchanging code:",
-      error.response?.data || error.message
-    );
+    console.error("Error exchanging code:", error.response?.data || error.message);
     res.status(500).json({ error: "Failed to exchange code" });
   }
 });
+
 
 app.post("/microuser", async (req, res) => {
   try {
