@@ -257,13 +257,23 @@ app.post("/microuser", async (req, res) => {
       phone,
       login_type,
       subscription_type,
-      subscription_duration,
       subscription_date,
       workspace,
     } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: "Email is required" });
+    }
+
+    const current_date = new Date();
+    const effective_subscription_date = subscription_date || current_date.toISOString().split("T")[0];
+    let expiry_date = null;
+    const subscription_status = "active";
+
+    if (subscription_type === "free") {
+      const expiryDateObj = new Date(effective_subscription_date);
+      expiryDateObj.setDate(expiryDateObj.getDate() + 90);
+      expiry_date = expiryDateObj.toISOString().split("T")[0];
     }
 
     const connection = await pool.getConnection();
@@ -287,9 +297,9 @@ app.post("/microuser", async (req, res) => {
       INSERT INTO users (
         uid, email, phone, name, 
         login_type, subscription_type, subscription_duration, 
-        subscription_date, workspace
+        subscription_date, expiry_date, subscription_status, workspace
       ) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     await connection.execute(insertUserQuery, [
@@ -299,8 +309,10 @@ app.post("/microuser", async (req, res) => {
       name || null,
       login_type,
       subscription_type || "free",
-      subscription_duration || "yearly",
-      subscription_date || new Date().toISOString().split("T")[0],
+      subscription_duration || null,
+      effective_subscription_date,
+      expiry_date,
+      subscription_status,
       workspace || null,
     ]);
 
@@ -311,8 +323,10 @@ app.post("/microuser", async (req, res) => {
       name: name || null,
       login_type,
       subscription_type: subscription_type || "free",
-      subscription_duration: subscription_duration || "yearly",
-      subscription_date: subscription_date || new Date().toISOString().split("T")[0],
+      subscription_duration: subscription_duration || null,
+      subscription_date: effective_subscription_date,
+      expiry_date,
+      subscription_status,
       workspace: workspace || null,
     };
 
@@ -358,6 +372,7 @@ app.post("/microuser", async (req, res) => {
     res.status(500).json({ error: "Failed to process request" });
   }
 });
+
 
 // github
 app.get("/getAccessToken", async (req, res) => {
@@ -444,12 +459,23 @@ app.get("/getuserData", async (req, res) => {
       );
 
       let userData;
+      const current_date = new Date();
+      const effective_subscription_date = current_date.toISOString().split("T")[0];
+      let expiry_date = null;
+      const subscription_type = "free";
+      const subscription_status = "active";
+
+      if (subscription_type === "free") {
+        const expiryDateObj = new Date(effective_subscription_date);
+        expiryDateObj.setDate(expiryDateObj.getDate() + 90);
+        expiry_date = expiryDateObj.toISOString().split("T")[0];
+      }
+
       if (rows[0].count === 0) {
-        const subscription_type = "free";
         const query = `
           INSERT INTO users 
-          (uid, email, access_token, name, login_type, picture, subscription_type, workspace) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          (uid, email, access_token, name, login_type, picture, subscription_type, subscription_status, subscription_date, expiry_date, workspace) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         await connection.execute(query, [
@@ -460,6 +486,9 @@ app.get("/getuserData", async (req, res) => {
           "github",
           avatar_url,
           subscription_type,
+          subscription_status,
+          effective_subscription_date,
+          expiry_date,
           workspace || null,
         ]);
 
@@ -471,6 +500,9 @@ app.get("/getuserData", async (req, res) => {
           login_type: "github",
           picture: avatar_url,
           subscription_type,
+          subscription_status,
+          subscription_date: effective_subscription_date,
+          expiry_date,
           workspace: workspace || null,
         };
 
@@ -494,6 +526,7 @@ app.get("/getuserData", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user data or store in DB" });
   }
 });
+
 
 // email register
 
