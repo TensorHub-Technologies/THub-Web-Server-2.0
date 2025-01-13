@@ -486,7 +486,7 @@ app.get("/getuserData", async (req, res) => {
           "github",
           avatar_url,
           subscription_type,
-          subscription_status,
+          subscription_status||"active",
           effective_subscription_date,
           expiry_date,
           workspace || null,
@@ -773,6 +773,7 @@ app.post("/loginUser", async (req, res) => {
       token,
       userId: uid,
       workspace: workspace,
+      email:email
     });
   } catch (error) {
     console.error("Login error:", error);
