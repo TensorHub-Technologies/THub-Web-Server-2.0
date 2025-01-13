@@ -60,7 +60,7 @@ const corsOptions = {
       "https://beta.thub.tech",
       "http://35.193.70.249",
       "http://34.122.113.191",
-      "https://20.207.65.5:3000"
+      "http://20.207.65.5:3000"
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
