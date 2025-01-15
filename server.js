@@ -154,38 +154,40 @@ app.post("/api/auth/google", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT subscription_type FROM users WHERE email = ?`,
+      `SELECT subscription_type, expiry_date FROM users WHERE email = ?`,
       [email]
     );
 
     let subscription_type = "free";
+    let expiry_date = null;
     let isNewUser = false;
 
-    // Set the subscription date and calculate expiry date for free plan
     const current_date = new Date();
     const subscription_date = current_date.toISOString().split("T")[0];
-    let expiry_date = null;
     const subscription_status = "active";
 
-    if (subscription_type === "free") {
+    if (rows.length > 0) {
+      subscription_type = rows[0].subscription_type;
+      expiry_date = rows[0].expiry_date;
+    } else {
+      isNewUser = true;
       const expiryDateObj = new Date(subscription_date);
       expiryDateObj.setDate(expiryDateObj.getDate() + 90);
       expiry_date = expiryDateObj.toISOString().split("T")[0];
     }
 
-    if (rows.length === 0) {
-      isNewUser = true;
+    if (isNewUser) {
       const insertUserQuery = `
         INSERT INTO users (uid, email, access_token, login_type, name, picture, subscription_type, subscription_date, expiry_date, subscription_status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await connection.execute(insertUserQuery, [
-        userId || null,
-        email || null,
-        access_token || null,
+        userId,
+        email,
+        access_token,
         "google",
-        name || null,
-        picture || null,
+        name,
+        picture,
         subscription_type,
         subscription_date,
         expiry_date,
@@ -194,25 +196,21 @@ app.post("/api/auth/google", async (req, res) => {
     } else {
       const updateUserQuery = `
         UPDATE users 
-        SET access_token = ?, login_type = ?, name = ?, picture = ?, subscription_type = ?, subscription_date = ?, expiry_date = ?, subscription_status = ?
+        SET access_token = ?, login_type = ?, name = ?, picture = ?, subscription_status = ?
         WHERE email = ?
       `;
       await connection.execute(updateUserQuery, [
-        access_token || null,
+        access_token,
         "google",
-        name || null,
-        picture || null,
-        subscription_type,
-        subscription_date,
-        expiry_date,
+        name,
+        picture,
         subscription_status,
-        email || null,
+        email,
       ]);
     }
 
     connection.release();
 
-    // Send welcome email if it's a new user
     if (isNewUser) {
       const mailOptions = {
         from: '"THub" <no-reply@thub.tech>',
@@ -221,13 +219,14 @@ app.post("/api/auth/google", async (req, res) => {
         text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
         html: `<p>Hi <strong>${name}</strong>,</p>
                <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
-               <p>Best regards,<br>The THub Team</p>`
+               <p>Best regards,<br>The THub Team</p>`,
       };
 
       console.log("Sending welcome email to:", email);
+
       try {
         const transporter = nodemailer.createTransport({
-          host: 'smtp.privateemail.com',
+          host: "smtp.privateemail.com",
           port: 465,
           secure: true,
           auth: {
@@ -375,7 +374,6 @@ app.post("/microuser", async (req, res) => {
   }
 });
 
-
 // github
 app.get("/getAccessToken", async (req, res) => {
   const headersSymbol = Object.getOwnPropertySymbols(req).find(sym => sym.toString() === 'Symbol(kHeaders)');
@@ -462,18 +460,19 @@ app.get("/getuserData", async (req, res) => {
 
       let userData;
       const current_date = new Date();
-      const effective_subscription_date = current_date.toISOString().split("T")[0];
+      const effective_subscription_date = current_date.toISOString().split("T")[0]; 
       let expiry_date = null;
-      const subscription_type = "free";
-      const subscription_status = "active";
+      let subscription_type = null;
+      let subscription_status = null;
 
-      if (subscription_type === "free") {
+      if (rows[0].count === 0) {
+        subscription_type = "free";
+        subscription_status = "active";
+
         const expiryDateObj = new Date(effective_subscription_date);
         expiryDateObj.setDate(expiryDateObj.getDate() + 90);
         expiry_date = expiryDateObj.toISOString().split("T")[0];
-      }
 
-      if (rows[0].count === 0) {
         const query = `
           INSERT INTO users 
           (uid, email, access_token, name, login_type, picture, subscription_type, subscription_status, subscription_date, expiry_date, workspace) 
@@ -488,7 +487,7 @@ app.get("/getuserData", async (req, res) => {
           "github",
           avatar_url,
           subscription_type,
-          subscription_status||"active",
+          subscription_status,
           effective_subscription_date,
           expiry_date,
           workspace || null,
@@ -508,7 +507,7 @@ app.get("/getuserData", async (req, res) => {
           workspace: workspace || null,
         };
 
-        console.log("User data inserted successfully");
+        console.log("New user data inserted with Free plan");
       } else {
         console.log("User already exists");
 
@@ -516,7 +515,23 @@ app.get("/getuserData", async (req, res) => {
           "SELECT * FROM users WHERE email = ?",
           [login]
         );
-        userData = existingUser[0];
+
+        const existingData = existingUser[0];
+
+        // Use existing subscription details
+        userData = {
+          uid: existingData.uid,
+          email: existingData.email,
+          access_token: existingData.access_token,
+          name: existingData.name,
+          login_type: existingData.login_type,
+          picture: existingData.picture,
+          subscription_type: existingData.subscription_type,
+          subscription_status: existingData.subscription_status,
+          subscription_date: existingData.subscription_date,
+          expiry_date: existingData.expiry_date,
+          workspace: existingData.workspace,
+        };
       }
 
       res.status(200).json(userData);
@@ -528,7 +543,6 @@ app.get("/getuserData", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user data or store in DB" });
   }
 });
-
 
 // email register
 
@@ -1023,9 +1037,23 @@ app.post('/create-subscription', async (req, res) => {
       return res.status(400).json({ error: 'Invalid plan ID' });
     }
 
-    // Determine total_count based on duration
     const interval = duration === 'monthly' ? 12 : 1;
-    console.log(interval,"interval")
+    console.log(interval, "interval");
+
+    // Calculate subscription_date and expiry_date
+    const subscription_date = new Date();
+    let expiry_date = new Date(subscription_date);
+
+    if (duration === 'monthly') {
+      expiry_date.setDate(expiry_date.getDate() + 30); // 30 days for monthly
+    } else {
+      expiry_date.setFullYear(expiry_date.getFullYear() + 1); // 12 months for yearly
+    }
+
+    // Format dates as YYYY-MM-DD
+    const formatted_subscription_date = subscription_date.toISOString().split('T')[0];
+    const formatted_expiry_date = expiry_date.toISOString().split('T')[0];
+
     // Create a subscription on Razorpay
     const subscription = await razorpay.subscriptions.create({
       plan_id: planId,
@@ -1033,19 +1061,21 @@ app.post('/create-subscription', async (req, res) => {
       customer_notify: 1,
     });
 
-
     res.json({
       id: subscription.id,
       status: subscription.status,
       message: 'Subscription created successfully',
       subscriptionType,
       duration,
+      subscription_date: formatted_subscription_date,
+      expiry_date: formatted_expiry_date,
     });
   } catch (error) {
     console.error('Error creating subscription:', error);
     res.status(500).json({ error: 'Failed to create subscription' });
   }
 });
+
 
 app.post('/razorpay-webhook', async (req, res) => {
   const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
