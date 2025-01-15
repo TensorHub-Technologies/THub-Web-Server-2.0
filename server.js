@@ -193,7 +193,6 @@ app.post("/api/auth/google", async (req, res) => {
         subscription_status,
       ]);
     } else {
-      // For existing user, update only access_token, name, and picture
       const updateUserQuery = `
         UPDATE users 
         SET access_token = ?, login_type = ?, name = ?, picture = ?, subscription_status = ?
@@ -460,18 +459,19 @@ app.get("/getuserData", async (req, res) => {
 
       let userData;
       const current_date = new Date();
-      const effective_subscription_date = current_date.toISOString().split("T")[0];
+      const effective_subscription_date = current_date.toISOString().split("T")[0]; 
       let expiry_date = null;
-      const subscription_type = "free";
-      const subscription_status = "active";
+      let subscription_type = null;
+      let subscription_status = null;
 
-      if (subscription_type === "free") {
+      if (rows[0].count === 0) {
+        subscription_type = "free";
+        subscription_status = "active";
+
         const expiryDateObj = new Date(effective_subscription_date);
         expiryDateObj.setDate(expiryDateObj.getDate() + 90);
         expiry_date = expiryDateObj.toISOString().split("T")[0];
-      }
 
-      if (rows[0].count === 0) {
         const query = `
           INSERT INTO users 
           (uid, email, access_token, name, login_type, picture, subscription_type, subscription_status, subscription_date, expiry_date, workspace) 
@@ -486,7 +486,7 @@ app.get("/getuserData", async (req, res) => {
           "github",
           avatar_url,
           subscription_type,
-          subscription_status||"active",
+          subscription_status,
           effective_subscription_date,
           expiry_date,
           workspace || null,
@@ -506,7 +506,7 @@ app.get("/getuserData", async (req, res) => {
           workspace: workspace || null,
         };
 
-        console.log("User data inserted successfully");
+        console.log("New user data inserted with Free plan");
       } else {
         console.log("User already exists");
 
@@ -514,7 +514,23 @@ app.get("/getuserData", async (req, res) => {
           "SELECT * FROM users WHERE email = ?",
           [login]
         );
-        userData = existingUser[0];
+
+        const existingData = existingUser[0];
+
+        // Use existing subscription details
+        userData = {
+          uid: existingData.uid,
+          email: existingData.email,
+          access_token: existingData.access_token,
+          name: existingData.name,
+          login_type: existingData.login_type,
+          picture: existingData.picture,
+          subscription_type: existingData.subscription_type,
+          subscription_status: existingData.subscription_status,
+          subscription_date: existingData.subscription_date,
+          expiry_date: existingData.expiry_date,
+          workspace: existingData.workspace,
+        };
       }
 
       res.status(200).json(userData);
@@ -526,7 +542,6 @@ app.get("/getuserData", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user data or store in DB" });
   }
 });
-
 
 // email register
 
@@ -1000,8 +1015,8 @@ const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, 
 app.post('/create-subscription', async (req, res) => {
   try {
     const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_SECRET,
+      key_id: process.env.getuserData,
+      key_secret: process.env.RAZORPAY_TEST_KEY_SECRET,
     });
 
     const { planId, customerEmail } = req.body;
@@ -1011,7 +1026,7 @@ app.post('/create-subscription', async (req, res) => {
 
     // Map Plan ID to Subscription Type and Duration
     let subscriptionType, duration;
-    if (planId ==='plan_PhdG5GMrYCqm6Z') {
+    if (planId ==='plan_PguBI476fHCWGG') {
       subscriptionType = 'pro';
       duration = 'monthly';
     } else if (planId === 'plan_PhdbTzJPTel2e3') {
