@@ -34,7 +34,7 @@ const inviteRegister=require("./routes/InviteRegister")
 const paypalRoutes=require("./routes/Paypal")
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PORT = process.env.PORT || 2000;
+const PORT = process.env.PORT || 8080;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
