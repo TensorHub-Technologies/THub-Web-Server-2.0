@@ -7,6 +7,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 dotenv.config();
 const bcrypt = require("bcrypt");
+const { v4: uuidv4 } = require("uuid"); 
 const jwt = require("jsonwebtoken");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
@@ -125,7 +126,6 @@ app.post("/proUsers", async (req, res) => {
 
 app.post("/api/auth/google", async (req, res) => {
   const { code } = req.body;
-  console.log(code, "from request body");
 
   try {
     const response = await axios.post("https://oauth2.googleapis.com/token", {
@@ -144,7 +144,6 @@ app.post("/api/auth/google", async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-    console.log("Google user payload:", payload);
 
     const userId = payload["sub"];
     const email = payload.email;
@@ -154,12 +153,13 @@ app.post("/api/auth/google", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT subscription_type, expiry_date FROM users WHERE email = ?`,
+      `SELECT subscription_type, expiry_date, workspace FROM users WHERE email = ?`,
       [email]
     );
 
     let subscription_type = "free";
     let expiry_date = null;
+    let workspace = null;
     let isNewUser = false;
 
     const current_date = new Date();
@@ -169,11 +169,14 @@ app.post("/api/auth/google", async (req, res) => {
     if (rows.length > 0) {
       subscription_type = rows[0].subscription_type;
       expiry_date = rows[0].expiry_date;
+      workspace = rows[0].workspace; // Retrieve the workspace for existing users
     } else {
       isNewUser = true;
       const expiryDateObj = new Date(subscription_date);
       expiryDateObj.setDate(expiryDateObj.getDate() + 90);
       expiry_date = expiryDateObj.toISOString().split("T")[0];
+
+      
     }
 
     if (isNewUser) {
@@ -222,7 +225,6 @@ app.post("/api/auth/google", async (req, res) => {
                <p>Best regards,<br>The THub Team</p>`,
       };
 
-      console.log("Sending welcome email to:", email);
 
       try {
         const transporter = nodemailer.createTransport({
@@ -235,18 +237,26 @@ app.post("/api/auth/google", async (req, res) => {
           },
         });
         await transporter.sendMail(mailOptions);
-        console.log("Welcome email sent successfully");
       } catch (emailError) {
         console.error("Failed to send welcome email:", emailError.message);
       }
     }
 
-    res.json({ id_token, access_token, user: payload, userId: userId });
+    res.json({
+      id_token,
+      access_token,
+      user: payload,
+      userId: userId,
+      subscription_type,
+      expiry_date,
+      workspace,
+    });
   } catch (error) {
     console.error("Error exchanging code:", error.response?.data || error.message);
     res.status(500).json({ error: "Failed to exchange code" });
   }
 });
+
 
 
 app.post("/microuser", async (req, res) => {
@@ -446,7 +456,6 @@ app.get("/getuserData", async (req, res) => {
       },
     });
 
-    console.log(data, "User Data");
 
     const { id, login, node_id, name, avatar_url, workspace } = data;
 
@@ -507,9 +516,7 @@ app.get("/getuserData", async (req, res) => {
           workspace: workspace || null,
         };
 
-        console.log("New user data inserted with Free plan");
       } else {
-        console.log("User already exists");
 
         const [existingUser] = await connection.execute(
           "SELECT * FROM users WHERE email = ?",
@@ -562,7 +569,6 @@ async function sendEmail({ recipient_email, OTP }) {
     },
   });
 
-
   const mailOptions = {
     from: '"THub" <no-reply@thub.tech>',
     to: recipient_email,
@@ -584,7 +590,6 @@ async function sendEmail({ recipient_email, OTP }) {
         console.error("Error sending email:", error);
         return reject(error);
       }
-      console.log(`OTP sent to ${recipient_email}: ${info.response}`);
       resolve(info);
     });
   });
@@ -623,9 +628,6 @@ app.post("/send-otp", async (req, res) => {
   const { email } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore.set(email, otp);
-
-  console.log(`OTP for ${email}: ${otp}`);
-
   try {
     await sendEmail({ recipient_email: email, OTP: otp });
     res.status(200).json({ message: "OTP sent successfully" });
@@ -654,12 +656,9 @@ app.post("/user/register", async (req, res) => {
     const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace, company, department, role } = req.body;
 
     const uid = generateRandomID();
-    console.log(uid, "user id");
     const name = `${firstName} ${lastName}`;
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
-
-    console.log("Inside server::user:", email, firstName, lastName, phone, password_hash, login_type, subscription_type, subscription_duration, subscription_date, workspace, company, department, role);
 
     const connection = await pool.getConnection();
 
@@ -674,7 +673,6 @@ app.post("/user/register", async (req, res) => {
       expiryDateObj.setDate(expiryDateObj.getDate() + 90); 
       expiry_date = expiryDateObj.toISOString().split("T")[0]; 
     }
-    console.log(subscription_status,"subscription_status")
     const insertUserQuery = `
     INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date, expiry_date, workspace, company, department, role, subscription_status) 
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -709,8 +707,6 @@ app.post("/user/register", async (req, res) => {
              <p>Best regards,<br>The THub Team</p>`,
     };
 
-    console.log("Sending welcome email to:", email);
-
     try {
       const transporter = nodemailer.createTransport({
         host: 'smtp.privateemail.com',
@@ -739,7 +735,6 @@ app.post("/user/register", async (req, res) => {
 
 app.post("/userdata", async (req, res) => {
   const { userId } = req.body;
-  console.log(req.body, "****");
 
   try {
     const connection = await pool.getConnection();
@@ -799,6 +794,7 @@ app.post("/loginUser", async (req, res) => {
 
 // update workspace 
 
+
 app.post("/updateUser", async (req, res) => {
   const { uid, department, role, designation, company, workspace } = req.body;
 
@@ -809,6 +805,7 @@ app.post("/updateUser", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
+    // Check if workspace already exists
     const [workspaceResult] = await connection.execute(
       "SELECT id FROM workspaces WHERE name = ?",
       [workspace]
@@ -818,11 +815,14 @@ app.post("/updateUser", async (req, res) => {
     if (workspaceResult.length > 0) {
       workspaceId = workspaceResult[0].id;
     } else {
+      const newWorkspaceId = uuidv4();
+
       const [newWorkspaceResult] = await connection.execute(
-        "INSERT INTO workspaces (name, created_by) VALUES (?, ?)",
-        [workspace, uid]
+        "INSERT INTO workspaces (id, name, created_by) VALUES (?, ?, ?)",
+        [newWorkspaceId, workspace, uid]
       );
-      workspaceId = newWorkspaceResult.insertId;
+
+      workspaceId = newWorkspaceId;
     }
 
     const [userCountResult] = await connection.execute(
@@ -843,7 +843,6 @@ app.post("/updateUser", async (req, res) => {
     );
 
     if (userWorkspaceResult.length === 0) {
-      console.log(role, "role of the user");
       await connection.execute(
         "INSERT INTO workspace_users (workspace_id, user_id, role, workspace_name) VALUES (?, ?, ?, ?)",
         [workspaceId, uid, role || "member", workspace]
@@ -860,7 +859,7 @@ app.post("/updateUser", async (req, res) => {
     // Update user details in the `users` table
     const updateUserQuery = `
       UPDATE users 
-      SET department = ?, designation = ?, company = ?, workspace = ?
+      SET department = ?, designation = ?, company = ?, workspace = ?, workspaceUid = ?
       WHERE uid = ?
     `;
     await connection.execute(updateUserQuery, [
@@ -868,6 +867,7 @@ app.post("/updateUser", async (req, res) => {
       designation,
       company,
       workspace,
+      workspaceId,
       uid,
     ]);
 
@@ -879,6 +879,7 @@ app.post("/updateUser", async (req, res) => {
     res.status(500).json({ message: "Error updating user data", error: error.message });
   }
 });
+
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.privateemail.com',
@@ -1023,7 +1024,6 @@ app.post('/create-subscription', async (req, res) => {
     const { planId, customerEmail } = req.body;
     const planDetails = await razorpay.plans.fetch(planId);
     const planAmount = planDetails.item.amount / 100; 
-    console.log(`Fetched plan details:`, planAmount);
 
     // Map Plan ID to Subscription Type and Duration
     let subscriptionType, duration;
@@ -1038,7 +1038,6 @@ app.post('/create-subscription', async (req, res) => {
     }
 
     const interval = duration === 'monthly' ? 12 : 1;
-    console.log(interval, "interval");
 
     // Calculate subscription_date and expiry_date
     const subscription_date = new Date();
@@ -1092,7 +1091,6 @@ app.post('/razorpay-webhook', async (req, res) => {
 
     if (event === 'subscription.activated') {
       const { subscription_id, customer_id } = req.body.payload.subscription.entity;
-      console.log(`Subscription activated: ${subscription_id}`);
     } else if (event === 'payment.failed') {
       const { payment_id, error } = req.body.payload.payment.entity;
 
