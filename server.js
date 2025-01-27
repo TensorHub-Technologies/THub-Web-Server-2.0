@@ -34,7 +34,7 @@ const inviteRegister=require("./routes/InviteRegister")
 const paypalRoutes=require("./routes/Paypal")
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 2000;
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
@@ -798,7 +798,9 @@ app.post("/loginUser", async (req, res) => {
 app.post("/updateUser", async (req, res) => {
   const { uid, department, role, designation, company, workspace } = req.body;
 
-  if (!uid || !workspace) {
+  let workspaceName=workspace.toString().toLowerCase().trim();
+
+  if (!uid || !workspaceName) {
     return res.status(400).json({ message: "User ID and workspace name are required" });
   }
 
@@ -808,7 +810,7 @@ app.post("/updateUser", async (req, res) => {
     // Check if workspace already exists
     const [workspaceResult] = await connection.execute(
       "SELECT id FROM workspaces WHERE name = ?",
-      [workspace]
+      [workspaceName]
     );
 
     let workspaceId;
@@ -819,7 +821,7 @@ app.post("/updateUser", async (req, res) => {
 
       const [newWorkspaceResult] = await connection.execute(
         "INSERT INTO workspaces (id, name, created_by) VALUES (?, ?, ?)",
-        [newWorkspaceId, workspace, uid]
+        [newWorkspaceId, workspaceName, uid]
       );
 
       workspaceId = newWorkspaceId;
@@ -827,14 +829,14 @@ app.post("/updateUser", async (req, res) => {
 
     const [userCountResult] = await connection.execute(
       "SELECT COUNT(*) AS userCount FROM workspace_users WHERE workspace_name = ?",
-      [workspace]
+      [workspaceName]
     );
 
     const userCount = userCountResult[0].userCount;
 
     if (userCount >= 5) {
       connection.release();
-      return res.status(400).json({ message: `Workspace "${workspace}" already has the maximum of 5 users.` });
+      return res.status(400).json({ message: `Workspace "${workspaceName}" already has the maximum of 5 users.` });
     }
 
     const [userWorkspaceResult] = await connection.execute(
@@ -845,13 +847,13 @@ app.post("/updateUser", async (req, res) => {
     if (userWorkspaceResult.length === 0) {
       await connection.execute(
         "INSERT INTO workspace_users (workspace_id, user_id, role, workspace_name) VALUES (?, ?, ?, ?)",
-        [workspaceId, uid, role || "member", workspace]
+        [workspaceId, uid, role || "member", workspaceName]
       );
     } else {
       if (role) {
         await connection.execute(
           "UPDATE workspace_users SET role = ?, workspace_name = ? WHERE workspace_id = ? AND user_id = ?",
-          [role, workspace, workspaceId, uid]
+          [role, workspaceName, workspaceId, uid]
         );
       }
     }
@@ -866,7 +868,7 @@ app.post("/updateUser", async (req, res) => {
       department,
       designation,
       company,
-      workspace,
+      workspaceName,
       workspaceId,
       uid,
     ]);
