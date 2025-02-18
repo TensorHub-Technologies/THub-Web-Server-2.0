@@ -2,7 +2,6 @@ const pool = require("../config/db");
 const transporter = require("../config/mailer")
 const cron = require('node-cron');
 
-
 // ! notifying the user for subscription
 
 // Function to notify the user for subscription renewal

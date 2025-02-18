@@ -31,9 +31,6 @@ const inviteRegister=require("./routes/InviteRegister")
 // routes paypal
 const paypalRoutes=require("./routes/Paypal")
 
-// routes workspaceName
-const workspaceRoute=require("./routes/WorkspaceName")
-
 // routes paypal webhook
 const paypalWebhookRoute=require("./routes/PaypalWebHooks")
 
@@ -44,8 +41,7 @@ const createSubscriptionRoute=require("./routes/CreateSubscription")
 const validateSubscriptionRoute=require("./routes/ValidateSubscription")
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PORT = process.env.PORT || 2000;
-
+const PORT = process.env.PORT || 8080;
 // MySQL Connection Pool
 const pool = mysql.createPool({
   host: process.env.DATABASE_HOST,
@@ -108,9 +104,6 @@ app.use("/user/invite/register",inviteRegister)
 
 // paypal subscription
 app.use("/api/paypal/subscription",paypalRoutes)
-
-// workspace name fetch
-app.use("/api/workspace",workspaceRoute)
 
 // paypal webhook 
 app.use("/paypal/webhook",paypalWebhookRoute)
@@ -199,8 +192,6 @@ app.post("/api/auth/google", async (req, res) => {
       const expiryDateObj = new Date(subscription_date);
       expiryDateObj.setDate(expiryDateObj.getDate() + 90);
       expiry_date = expiryDateObj.toISOString().split("T")[0];
-
-      
     }
 
     if (isNewUser) {
