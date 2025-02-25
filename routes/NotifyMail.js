@@ -131,7 +131,7 @@ async function sendNotification(userId, expiryDate) {
 }
 
 // Adjust cron job to debug
-cron.schedule('0 9 * * *', async () => {
+cron.schedule('51 19 * * *', async () => {
     try {
 
         const today = new Date();

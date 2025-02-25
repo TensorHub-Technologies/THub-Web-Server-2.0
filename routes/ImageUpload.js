@@ -25,7 +25,6 @@ cloudinary.config({
 // Image upload endpoint
 router.post('/', upload.single('file'), async (req, res) => {
     const { userId } = req.body;
-    console.log(req.body, "image upload reqbody");
 
     if (!userId) {
         return res.status(400).json({ success: false, error: 'User ID is required' });
@@ -55,11 +54,7 @@ router.post('/', upload.single('file'), async (req, res) => {
         };
 
         const result = await streamUpload(file.buffer);
-
-        console.log(result, "image result");
-
         await pool.query('UPDATE users SET picture = ? WHERE uid = ?', [result.secure_url, userId]);
-
         res.status(200).json({ success: true, imageUrl: result.secure_url });
     } catch (error) {
         console.error('Error uploading image:', error);

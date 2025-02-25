@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require("../config/db");
 const transporter = require("../config/mailer");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 
 function generateRandomID() {
     return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
