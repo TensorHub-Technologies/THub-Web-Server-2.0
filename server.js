@@ -6,7 +6,7 @@ const axios = require("axios");
 const cors = require("cors");
 const dotenv = require("dotenv");
 dotenv.config();
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const { v4: uuidv4 } = require("uuid"); 
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -407,7 +407,6 @@ app.get("/getAccessToken", async (req, res) => {
   } else {
     console.log("Symbol(kHeaders) not found in req");
   }
-  console.log(origin, "origin");
 
   try {
     let params;
@@ -433,7 +432,6 @@ app.get("/getAccessToken", async (req, res) => {
       return res.status(400).json({ error: "Invalid Github hostname" });
     }
 
-    console.log('Sending request to GitHub with params:', params.toString());
     const { data } = await axios.post(
       "https://github.com/login/oauth/access_token",
       params.toString(),
@@ -444,8 +442,6 @@ app.get("/getAccessToken", async (req, res) => {
         },
       }
     );
-
-    console.log('GitHub Response:', data);
 
     if (data.error) {
       console.error("GitHub OAuth error:", data.error_description);
