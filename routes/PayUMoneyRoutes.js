@@ -1,8 +1,7 @@
-const express = require("express");
-const router = express.Router();
-const pool = require("../config/db");
-const crypto = require("crypto");
 require('dotenv').config();
+const express = require('express');
+const crypto = require('crypto');
+const router = express.Router();
 
 const {
   PAYU_MERCHANT_KEY,
@@ -12,14 +11,26 @@ const {
   FAILURE_URL,
 } = process.env;
 
+console.log(PAYU_MERCHANT_KEY,"PAYU_MERCHANT_KEY");
+console.log(PAYU_MERCHANT_SALT,"PAYU_MERCHANT_SALT");
+console.log(PAYU_BASE_URL,"PAYU_BASE_URL");
+console.log(SUCCESS_URL,"SUCCESS_URL");
+console.log(FAILURE_URL,"FAILURE_URL");
+
+// Create subscription route
+// endpoint app.use("/api/payments",payuPaymentRoute)
+
 router.post('/create-subscription', async (req, res) => {
   try {
     const { txnid, amount, firstname, email, phone, productinfo, planId, duration } = req.body;
+    // Ensure txnid is unique; if not provided, create one.
     const transactionId = txnid || 'TXN' + new Date().getTime();
     
+    // Generate the hash for security
     const hashString = `${PAYU_MERCHANT_KEY}|${transactionId}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${PAYU_MERCHANT_SALT}`;
     const hash = crypto.createHash('sha512').update(hashString).digest('hex');
 
+    // Prepare the payment data object
     const paymentData = {
       key: PAYU_MERCHANT_KEY,
       txnid: transactionId,
@@ -29,7 +40,7 @@ router.post('/create-subscription', async (req, res) => {
       phone,
       productinfo,
       hash,
-      surl: SUCCESS_URL,
+      surl: SUCCESS_URL, // URL on your server that handles success
       furl: FAILURE_URL, // URL on your server that handles failure
       action: PAYU_BASE_URL,
       // Additional recurring payment parameters can be added here, e.g.,
