@@ -4,35 +4,25 @@ const crypto = require('crypto');
 const router = express.Router();
 
 const {
-  PAYU_MERCHANT_KEY,
-  PAYU_MERCHANT_SALT,
-  PAYU_BASE_URL,
+  PAYU_MERCHANT_KEY_TEST,
+  PAYU_MERCHANT_SALT_TEST,
+  PAYU_BASE_URL_TEST,
   SUCCESS_URL,
   FAILURE_URL,
 } = process.env;
 
-console.log(PAYU_MERCHANT_KEY,"PAYU_MERCHANT_KEY");
-console.log(PAYU_MERCHANT_SALT,"PAYU_MERCHANT_SALT");
-console.log(PAYU_BASE_URL,"PAYU_BASE_URL");
-console.log(SUCCESS_URL,"SUCCESS_URL");
-console.log(FAILURE_URL,"FAILURE_URL");
-
 // Create subscription route
 // endpoint app.use("/api/payments",payuPaymentRoute)
-
 router.post('/create-subscription', async (req, res) => {
   try {
     const { txnid, amount, firstname, email, phone, productinfo, planId, duration } = req.body;
-    // Ensure txnid is unique; if not provided, create one.
     const transactionId = txnid || 'TXN' + new Date().getTime();
-    
-    // Generate the hash for security
-    const hashString = `${PAYU_MERCHANT_KEY}|${transactionId}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${PAYU_MERCHANT_SALT}`;
+    const hashString = `${PAYU_MERCHANT_KEY_TEST}|${transactionId}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${PAYU_MERCHANT_SALT_TEST}`;
     const hash = crypto.createHash('sha512').update(hashString).digest('hex');
 
     // Prepare the payment data object
     const paymentData = {
-      key: PAYU_MERCHANT_KEY,
+      key: PAYU_MERCHANT_KEY_TEST,
       txnid: transactionId,
       amount,
       firstname,
@@ -40,12 +30,9 @@ router.post('/create-subscription', async (req, res) => {
       phone,
       productinfo,
       hash,
-      surl: SUCCESS_URL, // URL on your server that handles success
-      furl: FAILURE_URL, // URL on your server that handles failure
-      action: PAYU_BASE_URL,
-      // Additional recurring payment parameters can be added here, e.g.,
-      // recurring_frequency: duration === 'monthly' ? '1M' : '12M',
-      // planId: planId,
+      surl: SUCCESS_URL,
+      furl: FAILURE_URL,
+      action: PAYU_BASE_URL_TEST,
     };
 
     res.json(paymentData);
@@ -58,9 +45,7 @@ router.post('/create-subscription', async (req, res) => {
 // Payment success route
 router.post('/payment-success', async (req, res) => {
   try {
-    // Log the payment success details; implement hash verification as needed
     console.log('Payment Success:', req.body);
-    // Update subscription status in your database here if necessary
     res.send('Payment Successful');
   } catch (error) {
     console.error('Error in /payment-success:', error);
