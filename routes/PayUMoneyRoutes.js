@@ -42,26 +42,5 @@ router.post('/create-subscription', async (req, res) => {
   }
 });
 
-// Payment success route
-router.post('/payment-success', async (req, res) => {
-  try {
-    console.log('Payment Success:', req.body);
-    res.send('Payment Successful');
-  } catch (error) {
-    console.error('Error in /payment-success:', error);
-    res.status(500).send('Internal Server Error');
-  }
-});
-
-// Payment failure route
-router.post('/payment-failure', async (req, res) => {
-  try {
-    console.log('Payment Failed:', req.body);
-    res.send('Payment Failed');
-  } catch (error) {
-    console.error('Error in /payment-failure:', error);
-    res.status(500).send('Internal Server Error');
-  }
-});
 
 module.exports = router;
