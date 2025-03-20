@@ -1036,57 +1036,6 @@ app.post('/subscription-webhook-endpoint', async (req, res) => {
     res.json({ status: 'success' });
 });
 
-// payu money webhooks
-app.post('/subscription/api/payments/payment-success', express.json(), async (req, res) => {
-  try {
-    console.log('PayU Webhook Triggered: ', req.body);
-
-    // Validate the webhook payload
-    if (!req.body || !req.body.txnid) {
-      return res.status(400).json({ error: 'Invalid webhook data' });
-    }
-
-    // Extract data from webhook
-    const { txnid, status, amount, email, mihpayid } = req.body;
-
-    // Process success status
-    if (status === 'success') {
-      console.log(`✅ Payment Successful: ${txnid}, Amount: ${amount}, Email: ${email}`);
-
-      // TODO: Store the transaction details in your database
-
-      return res.status(200).json({ message: 'Payment recorded successfully' });
-    } else {
-      console.log(`❌ Payment Failed: ${txnid}, Status: ${status}`);
-      return res.status(400).json({ error: 'Payment not successful' });
-    }
-  } catch (error) {
-    console.error('Error processing PayU webhook:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-
-app.post('/api/payments/payment-success', async (req, res) => {
-  try {
-    console.log('Payment Success:', req.body);
-    res.send('Payment Successful');
-  } catch (error) {
-    console.error('Error in /payment-success:', error);
-    res.status(500).send('Internal Server Error');
-  }
-});
-
-// Payment failure route
-app.post('/api/payments/payment-failure', async (req, res) => {
-  try {
-    console.log('Payment Failed:', req.body);
-    res.send('Payment Failed');
-  } catch (error) {
-    console.error('Error in /payment-failure:', error);
-    res.status(500).send('Internal Server Error');
-  }
-});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
