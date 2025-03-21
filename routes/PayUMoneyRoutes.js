@@ -72,7 +72,6 @@ router.post('/create-subscription', async (req, res) => {
       udf2: duration,
       udf3: user_id,
     };
-    
 
     res.json(paymentData);
   } catch (error) {
@@ -86,6 +85,10 @@ router.post('/payment-success', async (req, res) => {
   try {
     console.log('Payment Success:', req.body);
     const { udf1: planId, udf2: duration ,udf3:user_id, productinfo} = req.body;
+    console.log(planId,"planId")
+    console.log(duration,"duration");
+    console.log(user_id,"user_id");
+    console.log(productinfo,"product");
     await updateSubscriptionInDB(planId, user_id, productinfo, duration);
     res.send('Payment Successful');
   } catch (error) {
