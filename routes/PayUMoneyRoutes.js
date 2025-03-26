@@ -5,9 +5,9 @@ const pool = require("../config/db");
 const router = express.Router();
 
 const {
-  PAYU_MERCHANT_KEY_TEST,
-  PAYU_MERCHANT_SALT_TEST,
-  PAYU_BASE_URL_TEST,
+  PAYU_MERCHANT_KEY,
+  PAYU_MERCHANT_SALT,
+  PAYU_BASE_URL_LIVE,
   SUCCESS_URL,
   FAILURE_URL,
 } = process.env;
@@ -51,13 +51,13 @@ const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, 
 router.post('/create-subscription', async (req, res) => {
   try {
     const { txnid, amount, firstname, email, phone, productinfo, planId, duration, user_id } = req.body;
+    console.log(req.body,"req.body")
     const transactionId = txnid || 'TXN' + new Date().getTime();
-    const hashString = `${PAYU_MERCHANT_KEY_TEST}|${transactionId}|${amount}|${productinfo}|${firstname}|${email}|${planId}|${duration}|${user_id}||||||||${PAYU_MERCHANT_SALT_TEST}`;
+    const hashString = `${PAYU_MERCHANT_KEY}|${transactionId}|${amount}|${productinfo}|${firstname}|${email}|${planId}|${duration}|${user_id}||||||||${PAYU_MERCHANT_SALT}`;
     const hash = crypto.createHash('sha512').update(hashString).digest('hex');
-
     // Prepare the payment data object
     const paymentData = {
-      key: PAYU_MERCHANT_KEY_TEST,
+      key: PAYU_MERCHANT_KEY,
       txnid: transactionId,
       amount,
       firstname,
@@ -67,7 +67,7 @@ router.post('/create-subscription', async (req, res) => {
       hash,
       surl: SUCCESS_URL,
       furl: FAILURE_URL,
-      action: PAYU_BASE_URL_TEST,
+      action: PAYU_BASE_URL_LIVE,
       udf1: planId,
       udf2: duration,
       udf3: user_id,
