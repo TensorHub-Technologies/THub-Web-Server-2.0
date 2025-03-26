@@ -70,7 +70,7 @@ const corsOptions = {
       "http://20.207.65.5:3000",
       "https://thub-app-beta-378678297066.us-central1.run.app",
       "http://35.224.113.191",
-      "http://34.31.158.201/",
+      "http://34.31.158.201",
       "https://textiletradebuddy-app-378678297066.us-central1.run.app/"
     ];
 
