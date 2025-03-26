@@ -58,6 +58,7 @@ const corsOptions = {
     const allowedOrigins = [
       "https://thub-test-378678297066.us-central1.run.app",
       "https://thub-web-2-0-0-378678297066.us-central1.run.app",
+      "https://textiletradebuddy-web-378678297066.us-central1.run.app",
       "http://test.thub.tech",
       "http://34.172.179.132:5001",
       "http://localhost:5173",
@@ -284,6 +285,7 @@ app.post("/microuser", async (req, res) => {
       phone,
       login_type,
       subscription_type,
+      subscription_duration,
       subscription_date,
       workspace,
     } = req.body;
