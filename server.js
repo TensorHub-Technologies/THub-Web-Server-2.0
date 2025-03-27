@@ -40,6 +40,9 @@ const createSubscriptionRoute=require("./routes/CreateSubscription")
 //  routes for validating subscription
 const validateSubscriptionRoute=require("./routes/ValidateSubscription")
 
+//  routes for payu money
+const payuPaymentRoute=require("./routes/PayUMoneyRoutes")
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
 // MySQL Connection Pool
@@ -117,9 +120,12 @@ app.use("/create-subscription",createSubscriptionRoute)
 
 app.use("/validate-subscription",validateSubscriptionRoute)
 
+// payu money
+app.use("/api/payments",payuPaymentRoute)
+
 app.get("/", (req, res) => {
   const url = process.env.URL;
-  res.status(200).send({ message: "Server running.....", url });
+  res.status(200).send({ message: "Server running.....", url }); 
 });
 
 app.post("/getProUsers", async (req, res) => {
@@ -1034,6 +1040,7 @@ app.post('/subscription-webhook-endpoint', async (req, res) => {
 
     res.json({ status: 'success' });
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
