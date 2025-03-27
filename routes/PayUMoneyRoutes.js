@@ -1,25 +1,64 @@
-const express = require("express");
-const router = express.Router();
-const pool = require("../config/db");
-const crypto = require("crypto");
 require('dotenv').config();
+const express = require('express');
+const crypto = require('crypto');
+const pool = require("../config/db"); 
+const router = express.Router();
 
 const {
   PAYU_MERCHANT_KEY,
   PAYU_MERCHANT_SALT,
-  PAYU_BASE_URL,
+  PAYU_BASE_URL_LIVE,
   SUCCESS_URL,
   FAILURE_URL,
 } = process.env;
 
+const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, duration) => {
+  const subscription_date = new Date().toISOString().split('T')[0];
+  const expiry_date = new Date(subscription_date);
+
+  if (duration === 'monthly') {
+    expiry_date.setMonth(expiry_date.getMonth() + 1);
+  } else if (duration === 'yearly') {
+    expiry_date.setFullYear(expiry_date.getFullYear() + 1);
+  }
+
+  let subscription_type=subscriptionType.toLowerCase();
+  console.log(subscription_type,"subscription_type")
+
+  const query = `
+      UPDATE users
+      SET 
+        subscription_type = ?, 
+        subscription_duration = ?, 
+        subscription_date = ?, 
+        expiry_date = ?, 
+        subscription_status = 'active',
+        razorpay_subscription_id = ?
+      WHERE uid = ?
+    `;
+
+  const connection = await pool.getConnection();
+  await connection.execute(query, [
+    subscription_type,
+    duration,
+    subscription_date,
+    expiry_date,
+    subscriptionId,
+    userId
+  ]);
+  connection.release();
+};
+
+// Create subscription route
+// endpoint app.use("/api/payments",payuPaymentRoute)
 router.post('/create-subscription', async (req, res) => {
   try {
-    const { txnid, amount, firstname, email, phone, productinfo, planId, duration } = req.body;
+    const { txnid, amount, firstname, email, phone, productinfo, planId, duration, user_id } = req.body;
+    console.log(req.body,"req.body")
     const transactionId = txnid || 'TXN' + new Date().getTime();
-    
-    const hashString = `${PAYU_MERCHANT_KEY}|${transactionId}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${PAYU_MERCHANT_SALT}`;
+    const hashString = `${PAYU_MERCHANT_KEY}|${transactionId}|${amount}|${productinfo}|${firstname}|${email}|${planId}|${duration}|${user_id}||||||||${PAYU_MERCHANT_SALT}`;
     const hash = crypto.createHash('sha512').update(hashString).digest('hex');
-
+    // Prepare the payment data object
     const paymentData = {
       key: PAYU_MERCHANT_KEY,
       txnid: transactionId,
@@ -30,11 +69,11 @@ router.post('/create-subscription', async (req, res) => {
       productinfo,
       hash,
       surl: SUCCESS_URL,
-      furl: FAILURE_URL, // URL on your server that handles failure
-      action: PAYU_BASE_URL,
-      // Additional recurring payment parameters can be added here, e.g.,
-      // recurring_frequency: duration === 'monthly' ? '1M' : '12M',
-      // planId: planId,
+      furl: FAILURE_URL,
+      action: PAYU_BASE_URL_LIVE,
+      udf1: planId,
+      udf2: duration,
+      udf3: user_id,
     };
 
     res.json(paymentData);
@@ -47,9 +86,13 @@ router.post('/create-subscription', async (req, res) => {
 // Payment success route
 router.post('/payment-success', async (req, res) => {
   try {
-    // Log the payment success details; implement hash verification as needed
     console.log('Payment Success:', req.body);
-    // Update subscription status in your database here if necessary
+    const { udf1: planId, udf2: duration ,udf3:user_id, productinfo} = req.body;
+    console.log(planId,"planId")
+    console.log(duration,"duration");
+    console.log(user_id,"user_id");
+    console.log(productinfo,"product");
+    await updateSubscriptionInDB(planId, user_id, productinfo, duration);
     res.send('Payment Successful');
   } catch (error) {
     console.error('Error in /payment-success:', error);
