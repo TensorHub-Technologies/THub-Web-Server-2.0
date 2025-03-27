@@ -22,6 +22,9 @@ const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, 
     expiry_date.setFullYear(expiry_date.getFullYear() + 1);
   }
 
+  let subscription_type=subscriptionType.toLowerCase();
+  console.log(subscription_type,"subscription_type")
+
   const query = `
       UPDATE users
       SET 
@@ -36,7 +39,7 @@ const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, 
 
   const connection = await pool.getConnection();
   await connection.execute(query, [
-    subscriptionType,
+    subscription_type,
     duration,
     subscription_date,
     expiry_date,
