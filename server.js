@@ -43,6 +43,8 @@ const validateSubscriptionRoute=require("./routes/ValidateSubscription")
 //  routes for payu money
 const payuPaymentRoute=require("./routes/PayUMoneyRoutes")
 
+const contactMail=require("./routes/ContactMail")
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
 // MySQL Connection Pool
@@ -123,6 +125,8 @@ app.use("/validate-subscription",validateSubscriptionRoute)
 
 // payu money
 app.use("/api/payments",payuPaymentRoute)
+
+app.use("/api/contactmail",contactMail)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
