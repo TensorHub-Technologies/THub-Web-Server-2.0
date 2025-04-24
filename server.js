@@ -792,11 +792,9 @@ app.post("/loginUser", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
-
+    // const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
     res.status(200).json({
       message: "Login successful",
-      token,
       userId: uid,
       workspace: workspace,
       email:email
