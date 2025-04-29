@@ -43,6 +43,8 @@ const validateSubscriptionRoute=require("./routes/ValidateSubscription")
 //  routes for payu money
 const payuPaymentRoute=require("./routes/PayUMoneyRoutes")
 
+// routes for imail trigger
+const emailTriggerAgent=require("./routes/AgentEmailTool")
 const contactMail=require("./routes/ContactMail")
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -127,8 +129,9 @@ app.use("/validate-subscription",validateSubscriptionRoute)
 // payu money
 app.use("/api/payments",payuPaymentRoute)
 
+// agent email trigger
+app.use("/api/agent/email",emailTriggerAgent)
 app.use("/api/contactmail",contactMail)
-
 app.get("/", (req, res) => {
   const url = process.env.URL;
   res.status(200).send({ message: "Server running.....", url }); 
@@ -803,11 +806,9 @@ app.post("/loginUser", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
-
+    // const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
     res.status(200).json({
       message: "Login successful",
-      token,
       userId: uid,
       workspace: workspace,
       email:email
