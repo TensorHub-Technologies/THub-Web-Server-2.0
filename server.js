@@ -43,6 +43,9 @@ const validateSubscriptionRoute=require("./routes/ValidateSubscription")
 //  routes for payu money
 const payuPaymentRoute=require("./routes/PayUMoneyRoutes")
 
+// routes for imail trigger
+const emailTriggerAgent=require("./routes/AgentEmailTool")
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
 // MySQL Connection Pool
@@ -118,6 +121,9 @@ app.use("/validate-subscription",validateSubscriptionRoute)
 
 // payu money
 app.use("/api/payments",payuPaymentRoute)
+
+// agent email trigger
+app.use("/api/agent/email",emailTriggerAgent)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
