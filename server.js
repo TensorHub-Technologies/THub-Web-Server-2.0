@@ -43,6 +43,8 @@ const validateSubscriptionRoute=require("./routes/ValidateSubscription")
 //  routes for payu money
 const payuPaymentRoute=require("./routes/PayUMoneyRoutes")
 
+// routes for imail trigger
+const emailTriggerAgent=require("./routes/AgentEmailTool")
 const contactMail=require("./routes/ContactMail")
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -126,8 +128,9 @@ app.use("/validate-subscription",validateSubscriptionRoute)
 // payu money
 app.use("/api/payments",payuPaymentRoute)
 
+// agent email trigger
+app.use("/api/agent/email",emailTriggerAgent)
 app.use("/api/contactmail",contactMail)
-
 app.get("/", (req, res) => {
   const url = process.env.URL;
   res.status(200).send({ message: "Server running.....", url }); 
