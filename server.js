@@ -45,6 +45,11 @@ const payuPaymentRoute=require("./routes/PayUMoneyRoutes")
 
 // routes for imail trigger
 const emailTriggerAgent=require("./routes/AgentEmailTool")
+const contactMail=require("./routes/ContactMail")
+
+// routes for agent trigger
+
+const schedulerAgent=require("./routes/SchedulerAgent")
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
@@ -64,6 +69,8 @@ const corsOptions = {
     const allowedOrigins = [
       "https://thub-test-378678297066.us-central1.run.app",
       "https://thub-web-2-0-0-378678297066.us-central1.run.app",
+      "https://textiletradebuddy-web-378678297066.us-central1.run.app",
+      "https://textiletradebuddy-app-378678297066.us-central1.run.app",
       "http://test.thub.tech",
       "http://34.172.179.132:5001",
       "http://localhost:5173",
@@ -74,7 +81,10 @@ const corsOptions = {
       "http://35.193.70.249",
       "http://34.122.113.191",
       "http://20.207.65.5:3000",
-      "https://thub-app-beta-378678297066.us-central1.run.app"
+      "https://thub-app-beta-378678297066.us-central1.run.app",
+      "http://35.224.113.191",
+      "http://34.31.158.201",
+      "https://textiletradebuddy-app-378678297066.us-central1.run.app/"
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
@@ -124,6 +134,12 @@ app.use("/api/payments",payuPaymentRoute)
 
 // agent email trigger
 app.use("/api/agent/email",emailTriggerAgent)
+
+app.use("/api/contactmail",contactMail)
+
+// agent scheduler
+
+app.use("/api/schedules",schedulerAgent)
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
@@ -293,6 +309,7 @@ app.post("/microuser", async (req, res) => {
       phone,
       login_type,
       subscription_type,
+      subscription_duration,
       subscription_date,
       workspace,
     } = req.body;
