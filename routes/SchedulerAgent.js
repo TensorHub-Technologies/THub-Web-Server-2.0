@@ -58,7 +58,7 @@ async function triggerJob(flowId, prompt) {
     console.log('Triggering job for flowId:', flowId);
     try {
         const response = await axios.post(
-            `http://localhost:3000/api/v1/internal-prediction/${flowId}`,
+            `https://demo.thub.tech/api/v1/internal-prediction/${flowId}`,
             {
                 question: prompt,
                 chatId: flowId
