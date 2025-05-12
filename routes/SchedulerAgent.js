@@ -142,7 +142,7 @@ router.post('/', async (req, res) => {
             cron_expression: cronExp,
             status: 'active'
         };
-
+        console.log('New job created:', newJob);
         scheduleJob(newJob);
 
         res.json({ success: true, message: `Schedule saved and started with cron: ${cronExp}` });
