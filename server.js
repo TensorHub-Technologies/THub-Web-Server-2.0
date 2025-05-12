@@ -104,6 +104,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use(express.urlencoded({ extended: false }));
+console.log('Server timezone:', new Date().toString());
 
 // enterprice route
 app.use("/enterprice-mail", enterpriceRoute)
