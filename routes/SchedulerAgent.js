@@ -95,7 +95,7 @@ function scheduleJob(job) {
         scheduledJobs.get(jobKey).stop();
         scheduledJobs.delete(jobKey);
     }
-
+    console.log('Setting up cron job for key:', jobKey, 'with cron:', job.cron_expression);
     const cronJob = cron.schedule(job.cron_expression, async () => {
         await triggerJob(job.flow_id, job.prompt);
 
@@ -123,16 +123,15 @@ router.post('/', async (req, res) => {
     if (!flowId || !scheduleType || !config || !prompt) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
-
     try {
         const cronExp = getCronExpression(scheduleType, config);
-
+        console.log('Generated cron expression:', cronExp);
         // Save to DB
         const [result] = await pool.query(
             'INSERT INTO scheduled_jobs (flow_id, schedule_type, config, prompt, cron_expression) VALUES (?, ?, ?, ?, ?)',
             [flowId, scheduleType, JSON.stringify(config), prompt, cronExp]
         );
-
+        console.log('DB insert result:', result);
         const newJob = {
             id: result.insertId,
             flow_id: flowId,
