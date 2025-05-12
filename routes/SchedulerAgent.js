@@ -127,7 +127,6 @@ router.post('/', async (req, res) => {
     }
     try {
         const cronExp = getCronExpression(scheduleType, config);
-        console.log(`Scheduling Once job at UTC: ${hour}:${minute} on ${day}-${month}`);
         console.log('Generated cron expression:', cronExp);
         // Save to DB
         const [result] = await pool.query(
