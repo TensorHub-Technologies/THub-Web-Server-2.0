@@ -21,6 +21,7 @@ function getCronExpression(scheduleType, config) {
             const hour = onceDate.getUTCHours();
             const day = onceDate.getUTCDate();
             const month = onceDate.getUTCMonth() + 1;
+            console.log(`Scheduling Once job at UTC: ${hour}:${minute} on ${day}-${month}`);
             return `${minute} ${hour} ${day} ${month} *`;
 
         }
