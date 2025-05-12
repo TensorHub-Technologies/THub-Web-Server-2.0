@@ -17,11 +17,12 @@ function getCronExpression(scheduleType, config) {
         }
         case 'Once': {
             const onceDate = new Date(config.OnceAt);
-            const minute = onceDate.getMinutes();
-            const hour = onceDate.getHours();
-            const day = onceDate.getDate();
-            const month = onceDate.getMonth() + 1;
+            const minute = onceDate.getUTCMinutes();
+            const hour = onceDate.getUTCHours();
+            const day = onceDate.getUTCDate();
+            const month = onceDate.getUTCMonth() + 1;
             return `${minute} ${hour} ${day} ${month} *`;
+
         }
         case 'Every day': {
             const [h, m] = config.dailyTime.split(':').map(Number);
@@ -74,7 +75,7 @@ async function triggerJob(flowId, prompt) {
                 }
             }
         );
-        if(response.status === 200) {
+        if (response.status === 200) {
             console.log('Job triggered successfully:', response.data);
         }
     } catch (err) {
@@ -86,33 +87,33 @@ function scheduleJob(job) {
     console.log('Scheduling job:', job);
     // Validate job object
     if (!cron.validate(job.cron_expression)) {
-    console.error('Invalid cron expression:', job.cron_expression);
-    return;
-}
-    try{
-    const jobKey = `${job.flow_id}-${job.schedule_type}-${job.cron_expression}`;
-    if (scheduledJobs.has(jobKey)) {
-        scheduledJobs.get(jobKey).stop();
-        scheduledJobs.delete(jobKey);
+        console.error('Invalid cron expression:', job.cron_expression);
+        return;
     }
-    console.log('Setting up cron job for key:', jobKey, 'with cron:', job.cron_expression);
-    const cronJob = cron.schedule(job.cron_expression, async () => {
-        await triggerJob(job.flow_id, job.prompt);
-
-        // If 'Once', deactivate it after run
-        if (job.schedule_type === 'Once') {
-            cronJob.stop();
+    try {
+        const jobKey = `${job.flow_id}-${job.schedule_type}-${job.cron_expression}`;
+        if (scheduledJobs.has(jobKey)) {
+            scheduledJobs.get(jobKey).stop();
             scheduledJobs.delete(jobKey);
-            await pool.query(`UPDATE scheduled_jobs SET status = 'inactive' WHERE id = ?`, [job.id]);
         }
-    });
+        console.log('Setting up cron job for key:', jobKey, 'with cron:', job.cron_expression);
+        const cronJob = cron.schedule(job.cron_expression, async () => {
+            await triggerJob(job.flow_id, job.prompt);
 
-    scheduledJobs.set(jobKey, cronJob);
-    }catch(err){
+            // If 'Once', deactivate it after run
+            if (job.schedule_type === 'Once') {
+                cronJob.stop();
+                scheduledJobs.delete(jobKey);
+                await pool.query(`UPDATE scheduled_jobs SET status = 'inactive' WHERE id = ?`, [job.id]);
+            }
+        });
+
+        scheduledJobs.set(jobKey, cronJob);
+    } catch (err) {
         console.error('Error scheduling job:', err.message);
         return;
     }
-   
+
 }
 
 // POST /api/schedules
@@ -125,6 +126,7 @@ router.post('/', async (req, res) => {
     }
     try {
         const cronExp = getCronExpression(scheduleType, config);
+        console.log(`Scheduling Once job at UTC: ${hour}:${minute} on ${day}-${month}`);
         console.log('Generated cron expression:', cronExp);
         // Save to DB
         const [result] = await pool.query(
