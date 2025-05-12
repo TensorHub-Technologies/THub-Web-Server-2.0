@@ -21,6 +21,7 @@ function getCronExpression(scheduleType, config) {
             const hour = onceDate.getUTCHours();
             const day = onceDate.getUTCDate();
             const month = onceDate.getUTCMonth() + 1;
+            console.log(`Scheduling Once job at UTC: ${hour}:${minute} on ${day}-${month}`);
             return `${minute} ${hour} ${day} ${month} *`;
 
         }
@@ -126,7 +127,6 @@ router.post('/', async (req, res) => {
     }
     try {
         const cronExp = getCronExpression(scheduleType, config);
-        console.log(`Scheduling Once job at UTC: ${hour}:${minute} on ${day}-${month}`);
         console.log('Generated cron expression:', cronExp);
         // Save to DB
         const [result] = await pool.query(
