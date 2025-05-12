@@ -47,6 +47,12 @@ const payuPaymentRoute=require("./routes/PayUMoneyRoutes")
 const emailTriggerAgent=require("./routes/AgentEmailTool")
 const contactMail=require("./routes/ContactMail")
 
+
+// routes for agent trigger
+
+const schedulerAgent=require("./routes/SchedulerAgent")
+
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PORT = process.env.PORT || 8080;
 // MySQL Connection Pool
@@ -131,6 +137,20 @@ app.use("/api/payments",payuPaymentRoute)
 
 // agent email trigger
 app.use("/api/agent/email",emailTriggerAgent)
+
+
+app.use("/api/contactmail",contactMail)
+
+// agent scheduler
+
+app.use("/api/schedules", schedulerAgent.router)
+const { scheduleJob } = schedulerAgent;
+
+async function loadScheduledJobs() {
+    const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
+    jobs.forEach(scheduleJob);
+}
+
 app.use("/api/contactmail",contactMail)
 app.get("/", (req, res) => {
   const url = process.env.URL;
@@ -1049,6 +1069,7 @@ app.post('/subscription-webhook-endpoint', async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+app.listen(PORT,async () => {
   console.log(`Server running on port ${PORT}`);
+  await loadScheduledJobs();
 });
