@@ -55,6 +55,7 @@ function getCronExpression(scheduleType, config) {
 }
 
 async function triggerJob(flowId, prompt) {
+    console.log('Triggering job for flowId:', flowId);
     try {
         const response = await axios.post(
             `https://demo.thub.tech/api/v1/internal-prediction/${flowId}`,
@@ -73,6 +74,9 @@ async function triggerJob(flowId, prompt) {
                 }
             }
         );
+        if(response.status === 200) {
+            console.log('Job triggered successfully:', response.data);
+        }
     } catch (err) {
         console.error('Error triggering chatflow:', err.message);
     }
