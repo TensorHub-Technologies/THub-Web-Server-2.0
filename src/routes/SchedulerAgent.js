@@ -101,7 +101,6 @@ async function triggerJob(flowId, prompt) {
             }
         );
         if (response.status === 200) {
-            console.log('Job triggered successfully:', response.data);
         }
     } catch (err) {
         console.error('Error triggering chatflow:', err.message);
@@ -143,7 +142,6 @@ function scheduleJob(job) {
 
 // POST /api/schedules
 router.post('/', async (req, res) => {
-    console.log('Received schedule request:', req.body);
     // Validate request body
     const { flowId, scheduleType, config, prompt } = req.body;
     if (!flowId || !scheduleType || !config || !prompt) {
@@ -151,13 +149,11 @@ router.post('/', async (req, res) => {
     }
     try {
         const cronExp = getCronExpression(scheduleType, config);
-        console.log('Generated cron expression:', cronExp);
         // Save to DB
         const [result] = await pool.query(
             'INSERT INTO scheduled_jobs (flow_id, schedule_type, config, prompt, cron_expression) VALUES (?, ?, ?, ?, ?)',
             [flowId, scheduleType, JSON.stringify(config), prompt, cronExp]
         );
-        console.log('DB insert result:', result);
         const newJob = {
             id: result.insertId,
             flow_id: flowId,
@@ -175,6 +171,51 @@ router.post('/', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+
+router.get('/:flowId', async (req, res) => {
+    console.log(req.params,"flowId")
+    const { flowId } = req.params;
+    console.log(flowId)
+    if (!flowId) return res.status(400).json({ error: 'flowId is required' });
+
+    try {
+        const [rows] = await pool.query(
+            'SELECT * FROM scheduled_jobs WHERE flow_id = ? AND status = "active"',
+            [flowId]
+        );
+        if (!rows.length) return res.status(400).json({ error: 'No active schedules found' });
+
+        return res.status(200).json(rows);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+router.post("/cancel", async (req, res) => {
+    const { id } = req.body;
+
+    if (!id) {
+        return res.status(400).json({ error: "id not available" });
+    }
+
+    try {
+        const [result] = await pool.query(
+            'UPDATE scheduled_jobs SET status = ? WHERE id = ?',
+            ['inactive', id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Schedule not found or already cancelled" });
+        }
+
+        return res.status(200).json({ message: "Schedule cancelled successfully" });
+    } catch (error) {
+        console.error("Error cancelling schedule:", error);
+        return res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 
 
 module.exports = {
