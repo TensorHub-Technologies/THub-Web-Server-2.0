@@ -1,8 +1,8 @@
-const express = require('express');
-const router = express.Router();
-const pool = require("../config/db");
-const transporter = require("../config/mailer");
-const bcrypt = require("bcryptjs");
+import express from "express";
+import pool from "../config/db.js"
+import transporter from "../config/mailer.js";
+const inviteRegister = express.Router();
+import bcrypt from "bcryptjs";
 
 function generateRandomID() {
     return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
@@ -10,7 +10,7 @@ function generateRandomID() {
     );
 }
 
-router.post("/", async (req, res) => {
+inviteRegister.post("/", async (req, res) => {
     try {
         const {
             email, firstName, lastName, phone, password, login_type,
@@ -102,4 +102,4 @@ router.post("/", async (req, res) => {
     }
 });
 
-module.exports = router;
+export default inviteRegister;

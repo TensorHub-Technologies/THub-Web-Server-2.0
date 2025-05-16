@@ -1,9 +1,7 @@
-const express = require("express");
-const router = express.Router();
-const pool = require("../config/db"); 
-
-const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
-
+import express from "express";
+import pool from "../config/db.js"
+const validateSubscriptionRoute = express.Router();
+import { validatePaymentVerification } from 'razorpay/dist/utils/razorpay-utils.js';
 
 const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, duration) => {
   const subscription_date = new Date().toISOString().split('T')[0];
@@ -39,7 +37,7 @@ const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, 
   connection.release();
 };
 
-router.post('/', async (req, res) => {
+validateSubscriptionRoute.post('/', async (req, res) => {
   const {
     razorpay_subscription_id,
     razorpay_payment_id,
@@ -75,4 +73,4 @@ router.post('/', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default validateSubscriptionRoute;

@@ -1,10 +1,10 @@
-const express=require("express");
-const router=express.Router();
-const pool=require("../config/db");
-const transporter=require("../config/mailer")
+import express from "express";
+import pool from "../config/db.js"
+import transporter from "../config/mailer.js";
+const enterpriceRoute=express.Router();
 
 
-router.post("/", async (req, res) => {
+enterpriceRoute.post("/", async (req, res) => {
     const {
       firstName,
       lastName,
@@ -62,4 +62,4 @@ router.post("/", async (req, res) => {
   });
   
 
-  module.exports=router;
+export default enterpriceRoute;

@@ -1,9 +1,9 @@
-const express = require('express');
-const cloudinary = require('cloudinary').v2;
-const multer = require('multer');
-const streamifier = require('streamifier');
-const pool = require("../config/db");
-const router = express.Router();
+import express from "express";
+import pool from "../config/db.js"
+import { v2 as cloudinary } from 'cloudinary';
+import multer from "multer";
+import streamifier from "streamifier";
+const imageUploadRoute = express.Router();
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024;
 
@@ -23,7 +23,7 @@ cloudinary.config({
 });
 
 // Image upload endpoint
-router.post('/', upload.single('file'), async (req, res) => {
+imageUploadRoute.post('/', upload.single('file'), async (req, res) => {
     const { userId } = req.body;
 
     if (!userId) {
@@ -62,4 +62,4 @@ router.post('/', upload.single('file'), async (req, res) => {
     }
 });
 
-module.exports = router;
+export default imageUploadRoute;

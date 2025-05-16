@@ -1,8 +1,8 @@
-const express = require("express");
-const router = express.Router();
-const cron = require('node-cron');
-const axios = require('axios');
-const pool = require('../config/db');
+import express from "express";
+import pool from "../config/db.js"
+import cron from "node-cron"
+import axios from "axios";
+const schedulerAgent = express.Router();
 
 const scheduledJobs = new Map();
 
@@ -141,7 +141,7 @@ function scheduleJob(job) {
 }
 
 // POST /api/schedules
-router.post('/', async (req, res) => {
+schedulerAgent.post('/', async (req, res) => {
     // Validate request body
     const { flowId, scheduleType, config, prompt } = req.body;
     if (!flowId || !scheduleType || !config || !prompt) {
@@ -173,7 +173,7 @@ router.post('/', async (req, res) => {
 });
 
 
-router.get('/:flowId', async (req, res) => {
+schedulerAgent.get('/:flowId', async (req, res) => {
     console.log(req.params,"flowId")
     const { flowId } = req.params;
     console.log(flowId)
@@ -192,7 +192,7 @@ router.get('/:flowId', async (req, res) => {
     }
 });
 
-router.post("/cancel", async (req, res) => {
+schedulerAgent.post("/cancel", async (req, res) => {
     const { id } = req.body;
 
     if (!id) {
@@ -217,8 +217,4 @@ router.post("/cancel", async (req, res) => {
 });
 
 
-
-module.exports = {
-    router,
-    scheduleJob
-};
+export { schedulerAgent, scheduleJob };
