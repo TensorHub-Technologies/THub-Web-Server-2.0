@@ -1,9 +1,11 @@
-require('dotenv').config();
-const express = require('express');
-const crypto = require('crypto');
-const pool = require("../config/db"); 
-const router = express.Router();
+import dotenv from "dotenv";
 
+import express from "express";
+import pool from "../config/db.js" 
+import crypto from "crypto"
+const payuPaymentRoute = express.Router();
+
+dotenv.config();
 const {
   PAYU_MERCHANT_KEY,
   PAYU_MERCHANT_SALT,
@@ -51,7 +53,7 @@ const updateSubscriptionInDB = async (subscriptionId, userId, subscriptionType, 
 
 // Create subscription route
 // endpoint app.use("/api/payments",payuPaymentRoute)
-router.post('/create-subscription', async (req, res) => {
+payuPaymentRoute.post('/create-subscription', async (req, res) => {
   try {
     const { txnid, amount, firstname, email, phone, productinfo, planId, duration, user_id } = req.body;
     console.log(req.body,"req.body")
@@ -84,7 +86,7 @@ router.post('/create-subscription', async (req, res) => {
 });
 
 // Payment success route
-router.post('/payment-success', async (req, res) => {
+payuPaymentRoute.post('/payment-success', async (req, res) => {
   try {
     console.log('Payment Success:', req.body);
     const { udf1: planId, udf2: duration ,udf3:user_id, productinfo} = req.body;
@@ -97,7 +99,7 @@ router.post('/payment-success', async (req, res) => {
 });
 
 // Payment failure route
-router.post('/payment-failure', async (req, res) => {
+payuPaymentRoute.post('/payment-failure', async (req, res) => {
   try {
     console.log('Payment Failed:', req.body);
     res.send('Payment Failed');
@@ -107,4 +109,4 @@ router.post('/payment-failure', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default payuPaymentRoute;

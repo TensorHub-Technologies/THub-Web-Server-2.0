@@ -1,9 +1,10 @@
-const express = require("express");
-const router = express.Router();
-const Razorpay = require("razorpay");
+import Razorpay from "razorpay";
+import express from "express";
 
 
-router.post('/', async (req, res) => {
+const createSubscriptionRoute = express.Router();
+
+createSubscriptionRoute.post('/', async (req, res) => {
     try {
       const razorpay = new Razorpay({
         key_id: process.env.RAZORPAY_KEY_ID,
@@ -63,4 +64,4 @@ router.post('/', async (req, res) => {
     }
   });
 
-module.exports = router;
+export default createSubscriptionRoute;

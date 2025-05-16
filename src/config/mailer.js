@@ -1,14 +1,14 @@
 // config/mailer.js
-const nodemailer = require("nodemailer");
+import nodemailer from "nodemailer"
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.privateemail.com",
+  host: "smtpout.secureserver.net",
   port: 465,
   secure: true,
   auth: {
-    user: "no-reply@thub.tech",
+    user: "noreply@textiletradebuddy.com",
     pass: process.env.NO_REPLY_MAIL_PASSWORD,
   },
 });
 
-module.exports = transporter;
+export default transporter;

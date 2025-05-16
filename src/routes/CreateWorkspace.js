@@ -1,6 +1,6 @@
-const express = require("express");
+import express from "express";
+import pool from "../config/db.js" 
 const router = express.Router();
-const pool = require("../config/db"); 
 
 router.post('/create-workspace', async (req, res) => {
     const { name, createdBy } = req.body;

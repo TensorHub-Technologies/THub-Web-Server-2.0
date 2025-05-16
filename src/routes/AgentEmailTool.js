@@ -1,6 +1,6 @@
-const express = require("express");
-const transporter = require("../config/mailer");
-const router = express.Router();
+import express from "express";
+import transporter from "../config/mailer.js";
+const emailTriggerAgent = express.Router();
 
 const sendEmail = async ({ email, message, subject }) => {
   
@@ -12,7 +12,7 @@ const sendEmail = async ({ email, message, subject }) => {
   });
 };
 
-router.post("/", async (req, res) => {
+emailTriggerAgent.post("/", async (req, res) => {
    console.log("Agent email got triggered")
     const {email,message,subject}=req.body;
     if (!email || !message) {
@@ -35,4 +35,4 @@ router.post("/", async (req, res) => {
         res.status(500).json({ message: 'An error occurred while processing the invitation.' });
 }});
 
-module.exports = router;
+export default emailTriggerAgent;

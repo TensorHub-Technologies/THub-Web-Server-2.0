@@ -1,6 +1,5 @@
-const pool = require("../config/db");
-const transporter = require("../config/mailer")
-const cron = require('node-cron');
+import pool from "../config/db.js"
+import cron from "node-cron"
 
 // ! notifying the user for subscription
 

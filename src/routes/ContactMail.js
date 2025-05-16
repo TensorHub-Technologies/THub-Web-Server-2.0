@@ -1,8 +1,9 @@
-const express = require("express");
-const router = express.Router();
-const transporter = require("../config/mailer");
+import express from "express";
+import transporter from "../config/mailer.js";
 
-router.post("/", async (req, res) => {
+const contactMail = express.Router();
+
+contactMail.post("/", async (req, res) => {
   const { firstName, email, mobileNumber, YourMessage } = req.body.values;
 
   try {
@@ -41,4 +42,4 @@ router.post("/", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default contactMail;

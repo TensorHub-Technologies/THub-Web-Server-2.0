@@ -1,8 +1,8 @@
-const express = require("express");
-const router = express.Router();
-const pool = require("../config/db"); 
+import express from "express";
+import pool from "../config/db.js" 
+const AddUser = express.Router();
 
-router.post('/add-user', async (req, res) => {
+AddUser.post('/add-user', async (req, res) => {
     const { workspaceId, userId, role } = req.body;
 
     if (!workspaceId || !userId) {
@@ -23,4 +23,4 @@ router.post('/add-user', async (req, res) => {
 });
 
 
-module.exports = router;
+export default AddUser;
