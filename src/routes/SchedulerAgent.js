@@ -163,7 +163,6 @@ schedulerAgent.post('/', async (req, res) => {
             cron_expression: cronExp,
             status: 'active'
         };
-        console.log('New job created:', newJob);
         scheduleJob(newJob);
 
         res.json({ success: true, message: `Schedule saved and started with cron: ${cronExp}` });
@@ -176,7 +175,6 @@ schedulerAgent.post('/', async (req, res) => {
 schedulerAgent.get('/:flowId', async (req, res) => {
     console.log(req.params,"flowId")
     const { flowId } = req.params;
-    console.log(flowId)
     if (!flowId) return res.status(400).json({ error: 'flowId is required' });
 
     try {
