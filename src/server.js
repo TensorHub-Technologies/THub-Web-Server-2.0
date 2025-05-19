@@ -121,7 +121,6 @@ app.use("/api/contactmail",contactMail)
 
 // agent scheduler
 app.use("/api/schedules", schedulerAgent)
-console.log(schedulerAgent,"scheduler Agent")
 
 async function loadScheduledJobs() {
     const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
