@@ -2,11 +2,11 @@
 import nodemailer from "nodemailer"
 
 const transporter = nodemailer.createTransport({
-  host: "smtpout.secureserver.net",
+  host: "smtp.privateemail.com",
   port: 465,
   secure: true,
   auth: {
-    user: "noreply@textiletradebuddy.com",
+    user: "no-reply@thub.tech",
     pass: process.env.NO_REPLY_MAIL_PASSWORD,
   },
 });

@@ -64,7 +64,8 @@ const corsOptions = {
       "https://thub-app-beta-378678297066.us-central1.run.app",
       "http://35.224.113.191",
       "http://34.31.158.201",
-      "https://textiletradebuddy-app-378678297066.us-central1.run.app/"
+      "https://textiletradebuddy-app-378678297066.us-central1.run.app/",
+      "https://thub-app.wittysand-a4a5c89d.westus2.azurecontainerapps.io"
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
@@ -121,7 +122,6 @@ app.use("/api/contactmail",contactMail)
 
 // agent scheduler
 app.use("/api/schedules", schedulerAgent)
-console.log(schedulerAgent,"scheduler Agent")
 
 async function loadScheduledJobs() {
     const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
