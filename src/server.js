@@ -748,7 +748,7 @@ app.post("/user/register", async (req, res) => {
       console.error("Failed to send welcome email:", emailError.message);
     }
 
-    res.status(200).json({ message: "User successfully added", userId: uid, workspace: workspace });
+    res.status(200).json({ message: "User successfully added", userId: uid, workspace: workspace,email,name });
     connection.release();
   } catch (error) {
     console.error("Error:", error);
@@ -757,9 +757,9 @@ app.post("/user/register", async (req, res) => {
 });
 
 
-app.post("/userdata", async (req, res) => {
-  const { userId } = req.body;
-
+app.get("/userdata", async (req, res) => {
+  const { userId } = req.query;
+  console.log(userId,"userId")
   try {
     const connection = await pool.getConnection();
 
