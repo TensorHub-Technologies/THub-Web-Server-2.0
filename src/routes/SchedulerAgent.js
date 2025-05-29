@@ -80,11 +80,12 @@ function getCronExpression(scheduleType, config) {
     }
 }
 
-async function triggerJob(flowId, prompt) {
-    console.log('Triggering job for flowId:', flowId);
+async function triggerJob(hostName,flowId, prompt) {
+    console.log("hostname :" + hostName)
+    console.log("flowId :" + flowId)
     try {
         const response = await axios.post(
-            `https://demo.thub.tech/api/v1/internal-prediction/${flowId}`,
+            `https://${hostName}/api/v1/internal-prediction/${flowId}`,
             {
                 question: prompt,
                 chatId: flowId
@@ -122,7 +123,7 @@ function scheduleJob(job) {
         }
         console.log('Setting up cron job for key:', jobKey, 'with cron:', job.cron_expression);
         const cronJob = cron.schedule(job.cron_expression, async () => {
-            await triggerJob(job.flow_id, job.prompt);
+            await triggerJob(job.hostName,job.flow_id, job.prompt);
 
             // If 'Once', deactivate it after run
             if (job.schedule_type === 'Once') {
@@ -143,8 +144,8 @@ function scheduleJob(job) {
 // POST /api/schedules
 schedulerAgent.post('/', async (req, res) => {
     // Validate request body
-    const { flowId, scheduleType, config, prompt } = req.body;
-    if (!flowId || !scheduleType || !config || !prompt) {
+    const { flowId, scheduleType, config, prompt ,hostName} = req.body;
+    if (!flowId || !scheduleType || !config || !prompt || !hostName) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
     try {
@@ -161,7 +162,8 @@ schedulerAgent.post('/', async (req, res) => {
             config,
             prompt,
             cron_expression: cronExp,
-            status: 'active'
+            status: 'active',
+            hostName
         };
         scheduleJob(newJob);
 
