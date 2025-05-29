@@ -1,9 +1,9 @@
-const express = require('express')
-const router = express.Router()
-const pool = require("../config/db");
+import express from "express";
+import pool from "../config/db.js"
+const userUpdateRoute = express.Router()
 
 
-router.post('/', async (req, res) => {
+userUpdateRoute.post('/', async (req, res) => {
     const { field, value, userId } = req.body
     if (!['name', 'department'].includes(field)) {
         return res.status(400).json({ message: 'Invalid field' })
@@ -22,4 +22,4 @@ router.post('/', async (req, res) => {
     }
 })
 
-module.exports = router
+export default userUpdateRoute;

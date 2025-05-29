@@ -1,56 +1,34 @@
-const express = require("express");
-const app = express();
-const mysql = require("mysql2/promise");
-const { OAuth2Client } = require("google-auth-library");
-const axios = require("axios");
-const cors = require("cors");
-const dotenv = require("dotenv");
+import express from "express";
+import mysql from "mysql2/promise";
+import { OAuth2Client } from "google-auth-library";
+import axios from "axios";
+import cors from "cors";
+import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
+import { v4 as uuidv4 } from "uuid";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
+
+import "./routes/NotifyMail.js";
+
+import imageUploadRoute from "./routes/ImageUpload.js";
+import userUpdateRoute from "./routes/UpdateUser.js";
+import enterpriceRoute from "./routes/EnterpriceMail.js";
+import inviteRoute from "./routes/InviteUser.js";
+import inviteRegister from "./routes/InviteRegister.js";
+import paypalRoutes from "./routes/Paypal.js";
+import paypalWebhookRoute from "./routes/PaypalWebHooks.js";
+import createSubscriptionRoute from "./routes/CreateSubscription.js";
+import validateSubscriptionRoute from "./routes/ValidateSubscription.js";
+import payuPaymentRoute from "./routes/PayUMoneyRoutes.js";
+import emailTriggerAgent from "./routes/AgentEmailTool.js";
+import contactMail from "./routes/ContactMail.js";
+import {schedulerAgent,scheduleJob} from "./routes/SchedulerAgent.js";
+
 dotenv.config();
-const bcrypt = require("bcryptjs");
-const { v4: uuidv4 } = require("uuid"); 
-const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 
-// routes imports
-require("./routes/NotifyMail")
-
-const imageUploadRoute = require("./routes/ImageUpload")
-
-//routes update user edit
-const userUpdateRoute = require("./routes/UpdateUser")
-
-const enterpriceRoute = require("./routes/EnterpriceMail");
-
-// routes workspace invite
-const inviteRoute=require("./routes/InviteUser")
-
-// routes invite register
-const inviteRegister=require("./routes/InviteRegister")
-
-// routes paypal
-const paypalRoutes=require("./routes/Paypal")
-
-// routes paypal webhook
-const paypalWebhookRoute=require("./routes/PaypalWebHooks")
-
-// routes for creating subscription
-const createSubscriptionRoute=require("./routes/CreateSubscription")
-
-//  routes for validating subscription
-const validateSubscriptionRoute=require("./routes/ValidateSubscription")
-
-//  routes for payu money
-const payuPaymentRoute=require("./routes/PayUMoneyRoutes")
-
-// routes for imail trigger
-const emailTriggerAgent=require("./routes/AgentEmailTool")
-const contactMail=require("./routes/ContactMail")
-
-
-// routes for agent trigger
-
-const schedulerAgent=require("./routes/SchedulerAgent")
+const app = express();
 
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -105,6 +83,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.use(express.urlencoded({ extended: false }));
+console.log('Server timezone:', new Date().toString());
 
 // enterprice route
 app.use("/enterprice-mail", enterpriceRoute)
@@ -142,16 +121,13 @@ app.use("/api/agent/email",emailTriggerAgent)
 app.use("/api/contactmail",contactMail)
 
 // agent scheduler
-
-app.use("/api/schedules", schedulerAgent.router)
-const { scheduleJob } = schedulerAgent;
+app.use("/api/schedules", schedulerAgent)
 
 async function loadScheduledJobs() {
     const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
     jobs.forEach(scheduleJob);
 }
 
-app.use("/api/contactmail",contactMail)
 app.get("/", (req, res) => {
   const url = process.env.URL;
   res.status(200).send({ message: "Server running.....", url }); 
@@ -178,7 +154,6 @@ app.post("/proUsers", async (req, res) => {
 
   res.status(200).json(rows[0].Count);
 });
-
 
 app.post("/api/auth/google", async (req, res) => {
   const { code } = req.body;
@@ -773,7 +748,7 @@ app.post("/user/register", async (req, res) => {
       console.error("Failed to send welcome email:", emailError.message);
     }
 
-    res.status(200).json({ message: "User successfully added", userId: uid, workspace: workspace });
+    res.status(200).json({ message: "User successfully added", userId: uid, workspace: workspace,email,name });
     connection.release();
   } catch (error) {
     console.error("Error:", error);
@@ -782,9 +757,9 @@ app.post("/user/register", async (req, res) => {
 });
 
 
-app.post("/userdata", async (req, res) => {
-  const { userId } = req.body;
-
+app.get("/userdata", async (req, res) => {
+  const { userId } = req.query;
+  console.log(userId,"userId")
   try {
     const connection = await pool.getConnection();
 

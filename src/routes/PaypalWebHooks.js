@@ -1,8 +1,8 @@
-const express = require("express");
-const router = express.Router();
-const pool = require("../config/db");
+import express from "express";
+import pool from "../config/db.js"
+const paypalWebhookRoute = express.Router();
 
-router.post('/', async (req, res) => {
+paypalWebhookRoute.post('/', async (req, res) => {
     try {
         const event = req.body; 
 
@@ -33,4 +33,4 @@ router.post('/', async (req, res) => {
 });
 
 
-module.exports = router;
+export default paypalWebhookRoute;

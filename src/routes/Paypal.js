@@ -1,7 +1,6 @@
-const express = require("express");
-const router = express.Router();
-const pool = require("../config/db");
+import express from "express";
 
+const paypalRoutes = express.Router();
 const PAYPAL_CLIENT_ID = 'YOUR_PAYPAL_CLIENT_ID';
 const PAYPAL_SECRET = 'YOUR_PAYPAL_SECRET';
 const PAYPAL_API_BASE = 'https://api-m.sandbox.paypal.com'; 
@@ -29,7 +28,7 @@ const getAccessToken = async () => {
 };
 
 // Route to create a subscription
-router.post('/', async (req, res) => {
+paypalRoutes.post('/', async (req, res) => {
     const { planId } = req.body;
     try {
         const accessToken = await getAccessToken();
@@ -55,4 +54,4 @@ router.post('/', async (req, res) => {
     }
 });
 
-module.exports = router;
+export default paypalRoutes;
