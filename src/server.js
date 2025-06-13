@@ -654,6 +654,7 @@ app.post("/send-otp", async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore.set(email, otp);
   try {
+    console.log("sendEmail() triggered")
     await sendEmail({ recipient_email: email, OTP: otp });
     res.status(200).json({ message: "OTP sent successfully" });
   } catch (error) {
