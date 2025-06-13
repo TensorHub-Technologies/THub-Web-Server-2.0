@@ -583,6 +583,7 @@ function generateRandomID() {
   );
 }
 async function sendEmail({ recipient_email, OTP }) {
+  console.log("password: ", process.env.NO_REPLY_MAIL_PASSWORD)
   const transporter = nodemailer.createTransport({
     host: 'smtp.privateemail.com',
     port: 465,
