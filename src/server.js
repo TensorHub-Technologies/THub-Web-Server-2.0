@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import transporter from "./config/mailer.js";
 
 import "./routes/NotifyMail.js";
 
@@ -256,15 +257,15 @@ app.post("/api/auth/google", async (req, res) => {
 
 
       try {
-        const transporter = nodemailer.createTransport({
-          host: "smtp.privateemail.com",
-          port: 465,
-          secure: true,
-          auth: {
-            user: "no-reply@thub.tech",
-            pass: process.env.NO_REPLY_MAIL_PASSWORD,
-          },
-        });
+      const transporter = nodemailer.createTransport({
+  host: "smtp.office365.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: "no-reply@thub.tech",
+    pass: process.env.NO_REPLY_MAIL_PASSWORD,
+  },
+});
         await transporter.sendMail(mailOptions);
       } catch (emailError) {
         console.error("Failed to send welcome email:", emailError.message);
@@ -583,40 +584,29 @@ function generateRandomID() {
   );
 }
 async function sendEmail({ recipient_email, OTP }) {
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.privateemail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: 'no-reply@thub.tech',
-      pass: process.env.NO_REPLY_MAIL_PASSWORD,
-    },
-  });
-
   const mailOptions = {
     from: '"THub" <no-reply@thub.tech>',
     to: recipient_email,
     subject: "Your OTP Code",
     html: `
-    <p>Hi there,</p>
-    <p>Your one-time password (OTP) for accessing THub.tech is:</p>
-    <strong><span style="font-size: 18px;">${OTP}</span></strong>
-    <p>This code will expire in 5 minutes.</p>
-    <p>Please enter this code to verify your identity.</p>
-    <p>Thanks,</p>
-    <p>The THub Team</p>
-  `,
+      <p>Hi there,</p>
+      <p>Your one-time password (OTP) for accessing THub.tech is:</p>
+      <strong><span style="font-size: 18px;">${OTP}</span></strong>
+      <p>This code will expire in 5 minutes.</p>
+      <p>Please enter this code to verify your identity.</p>
+      <p>Thanks,</p>
+      <p>The THub Team</p>
+    `,
   };
 
-  return new Promise((resolve, reject) => {
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("Error sending email:", error);
-        return reject(error);
-      }
-      resolve(info);
-    });
-  });
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending email:", error);
+    return { success: false, error };
+  }
 }
 
 // Store for OTPs
@@ -903,15 +893,15 @@ app.post("/updateUser", async (req, res) => {
 });
 
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.privateemail.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: 'no-reply@thub.tech',
-    pass: process.env.NO_REPLY_MAIL_PASSWORD,
-  },
-});
+// const transporter = nodemailer.createTransport({
+//   host: 'smtp.privateemail.com',
+//   port: 465,
+//   secure: true,
+//   auth: {
+//     user: 'no-reply@thub.tech',
+//     pass: process.env.NO_REPLY_MAIL_PASSWORD,
+//   },
+// });
 
 app.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
