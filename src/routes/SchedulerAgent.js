@@ -81,8 +81,7 @@ function getCronExpression(scheduleType, config) {
 }
 
 async function triggerJob(hostName,flowId, prompt) {
-    console.log("hostname :" + hostName)
-    console.log("flowId :" + flowId)
+
     try {
         const response = await axios.post(
             `https://${hostName}/api/v1/internal-prediction/${flowId}`,
@@ -109,7 +108,6 @@ async function triggerJob(hostName,flowId, prompt) {
 }
 
 function scheduleJob(job) {
-    console.log('Scheduling job:', job);
     // Validate job object
     if (!cron.validate(job.cron_expression)) {
         console.error('Invalid cron expression:', job.cron_expression);
@@ -121,7 +119,6 @@ function scheduleJob(job) {
             scheduledJobs.get(jobKey).stop();
             scheduledJobs.delete(jobKey);
         }
-        console.log('Setting up cron job for key:', jobKey, 'with cron:', job.cron_expression);
         const cronJob = cron.schedule(job.cron_expression, async () => {
             await triggerJob(job.hostName,job.flow_id, job.prompt);
 
@@ -175,7 +172,6 @@ schedulerAgent.post('/', async (req, res) => {
 
 
 schedulerAgent.get('/:flowId', async (req, res) => {
-    console.log(req.params,"flowId")
     const { flowId } = req.params;
     if (!flowId) return res.status(400).json({ error: 'flowId is required' });
 
