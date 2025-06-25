@@ -584,6 +584,7 @@ function generateRandomID() {
   );
 }
 async function sendEmail({ recipient_email, OTP }) {
+  console.log(recipient_email);
   const mailOptions = {
     from: '"THub" <no-reply@thub.tech>',
     to: recipient_email,
