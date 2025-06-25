@@ -584,19 +584,21 @@ function generateRandomID() {
   );
 }
 async function sendEmail({ recipient_email, OTP }) {
-
-  console.log("password: ", process.env.NO_REPLY_MAIL_PASSWORD)
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.privateemail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: 'no-reply@thub.tech',
-      pass: process.env.NO_REPLY_MAIL_PASSWORD,
-    },
-  });
-
-
+  console.log(recipient_email);
+  const mailOptions = {
+    from: '"THub" <no-reply@thub.tech>',
+    to: recipient_email,
+    subject: "Your OTP Code",
+    html: `
+      <p>Hi there,</p>
+      <p>Your one-time password (OTP) for accessing THub.tech is:</p>
+      <strong><span style="font-size: 18px;">${OTP}</span></strong>
+      <p>This code will expire in 5 minutes.</p>
+      <p>Please enter this code to verify your identity.</p>
+      <p>Thanks,</p>
+      <p>The THub Team</p>
+    `,
+  };
 
   try {
     const info = await transporter.sendMail(mailOptions);
@@ -642,7 +644,6 @@ app.post("/send-otp", async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore.set(email, otp);
   try {
-    console.log("sendEmail() triggered")
     await sendEmail({ recipient_email: email, OTP: otp });
     res.status(200).json({ message: "OTP sent successfully" });
   } catch (error) {
