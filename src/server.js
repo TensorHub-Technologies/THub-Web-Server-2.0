@@ -267,15 +267,6 @@ app.post("/api/auth/google", async (req, res) => {
 
 
       try {
-      const transporter = nodemailer.createTransport({
-  host: "smtp.office365.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "no-reply@thub.tech",
-    pass: process.env.NO_REPLY_MAIL_PASSWORD,
-  },
-});
         await transporter.sendMail(mailOptions);
       } catch (emailError) {
         console.error("Failed to send welcome email:", emailError.message);
@@ -329,19 +320,30 @@ app.post("/microuser", async (req, res) => {
     const connection = await pool.getConnection();
 
     // Check if the user exists
-    const [rows] = await connection.execute(
-      `SELECT * FROM users WHERE email = ?`,
-      [email]
-    );
+const [rows] = await connection.execute(
+  `SELECT * FROM users WHERE email = ?`,
+  [email]
+);
 
-    if (rows.length > 0) {
-      const existingUser = rows[0];
-      await connection.release();
-      return res.json({
-        message: "User already exists",
-        user: existingUser,
-      });
-    }
+if (rows.length > 0) {
+  const existingUser = rows[0];
+
+  // Check if login type matches
+  if (existingUser.login_type !== login_type) {
+    await connection.release();
+    return res.status(400).json({
+      message: `This email is already registered using ${existingUser.login_type}. Please use ${existingUser.login_type} login.`,
+      login_type: existingUser.login_type,
+    });
+  }
+
+  await connection.release();
+  return res.status(200).json({
+    message: "User already exists",
+    user: existingUser,
+  });
+}
+
 
     const insertUserQuery = `
       INSERT INTO users (
@@ -391,15 +393,6 @@ app.post("/microuser", async (req, res) => {
     };
 
     try {
-      const transporter = nodemailer.createTransport({
-        host: "smtp.privateemail.com",
-        port: 465,
-        secure: true,
-        auth: {
-          user: "no-reply@thub.tech",
-          pass: process.env.NO_REPLY_MAIL_PASSWORD,
-        },
-      });
       await transporter.sendMail(mailOptions);
     } catch (emailError) {
       console.error("Failed to send welcome email:", {
@@ -438,20 +431,20 @@ app.get("/getAccessToken", async (req, res) => {
     let params;
     if (origin === "http://localhost:5173") {
       params = new URLSearchParams({
-        client_id: process.env.Github_ClientId_Local,
-        client_secret: process.env.Github_Secret_Local,
+        client_id: process.env.GITHUB_CLIENT_ID_LOCAL,
+        client_secret: process.env.GITHUB_CLIENT_SECRET_LOCAL,
         code: req.query.code,
       });
     } else if (origin === "https://thub.tech") {
       params = new URLSearchParams({
-        client_id: process.env.Github_ClientId_app,
-        client_secret: process.env.Github_Secret_App,
+        client_id: process.env.GITHUB_CLIENT_ID_APP,
+        client_secret: process.env.GITHUB_CLIENT_SECRET_APP,
         code: req.query.code,
       });
     } else if (origin === "https://thub-web-2-0-0-378678297066.us-central1.run.app") {
       params = new URLSearchParams({
-        client_id: process.env.Github_ClientId_demo,
-        client_secret: process.env.Github_Secret_Demo,
+        client_id: process.env.GITHUB_CLIENT_ID_DEMO,
+        client_secret: process.env.GITHUB_CLIENT_SECRET_LOCAL,
         code: req.query.code,
       });
     } else {
@@ -594,19 +587,21 @@ function generateRandomID() {
   );
 }
 async function sendEmail({ recipient_email, OTP }) {
-
-  console.log("password: ", process.env.NO_REPLY_MAIL_PASSWORD)
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.privateemail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: 'no-reply@thub.tech',
-      pass: process.env.NO_REPLY_MAIL_PASSWORD,
-    },
-  });
-
-
+  console.log(recipient_email);
+  const mailOptions = {
+    from: '"THub" <no-reply@thub.tech>',
+    to: recipient_email,
+    subject: "Your OTP Code",
+    html: `
+      <p>Hi there,</p>
+      <p>Your one-time password (OTP) for accessing THub.tech is:</p>
+      <strong><span style="font-size: 18px;">${OTP}</span></strong>
+      <p>This code will expire in 5 minutes.</p>
+      <p>Please enter this code to verify your identity.</p>
+      <p>Thanks,</p>
+      <p>The THub Team</p>
+    `,
+  };
 
   try {
     const info = await transporter.sendMail(mailOptions);
@@ -652,7 +647,6 @@ app.post("/send-otp", async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore.set(email, otp);
   try {
-    console.log("sendEmail() triggered")
     await sendEmail({ recipient_email: email, OTP: otp });
     res.status(200).json({ message: "OTP sent successfully" });
   } catch (error) {
@@ -678,7 +672,6 @@ app.post("/verify-otp", (req, res) => {
 app.post("/user/register", async (req, res) => {
   try {
     const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace, company, department, role } = req.body;
-
     const uid = generateRandomID();
     const name = `${firstName} ${lastName}`;
     const saltRounds = 10;
@@ -732,15 +725,6 @@ app.post("/user/register", async (req, res) => {
     };
 
     try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.privateemail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: "no-reply@thub.tech",
-          pass: process.env.NO_REPLY_MAIL_PASSWORD,
-        },
-      });
 
       await transporter.sendMail(mailOptions);
       console.log("Welcome email sent successfully");
