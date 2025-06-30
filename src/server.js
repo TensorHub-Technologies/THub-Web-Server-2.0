@@ -428,20 +428,20 @@ app.get("/getAccessToken", async (req, res) => {
     let params;
     if (origin === "http://localhost:5173") {
       params = new URLSearchParams({
-        client_id: process.env.Github_ClientId_Local,
-        client_secret: process.env.Github_Secret_Local,
+        client_id: process.env.GITHUB_CLIENT_ID_LOCAL,
+        client_secret: process.env.GITHUB_CLIENT_SECRET_LOCAL,
         code: req.query.code,
       });
     } else if (origin === "https://thub.tech") {
       params = new URLSearchParams({
-        client_id: process.env.Github_ClientId_app,
-        client_secret: process.env.Github_Secret_App,
+        client_id: process.env.GITHUB_CLIENT_ID_APP,
+        client_secret: process.env.GITHUB_CLIENT_SECRET_APP,
         code: req.query.code,
       });
     } else if (origin === "https://thub-web-2-0-0-378678297066.us-central1.run.app") {
       params = new URLSearchParams({
-        client_id: process.env.Github_ClientId_demo,
-        client_secret: process.env.Github_Secret_Demo,
+        client_id: process.env.GITHUB_CLIENT_ID_DEMO,
+        client_secret: process.env.GITHUB_CLIENT_SECRET_LOCAL,
         code: req.query.code,
       });
     } else {
