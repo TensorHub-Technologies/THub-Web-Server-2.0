@@ -185,7 +185,7 @@ app.post("/api/auth/google", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT subscription_type, expiry_date, workspace FROM users WHERE email = ?`,
+      `SELECT subscription_type, expiry_date, workspace, login_type FROM users WHERE email = ?`,
       [email]
     );
 
@@ -199,9 +199,19 @@ app.post("/api/auth/google", async (req, res) => {
     const subscription_status = "active";
 
     if (rows.length > 0) {
+    const existing_login_type = rows[0].login_type;
+      console.log("Existing login type:", existing_login_type);
+  if (existing_login_type !== "google") {
+    // User is already registered with a different method
+    return res.status(400).json({
+      success: false,
+      message: `This email is already registered using ${existing_login_type}. Please log in using ${existing_login_type}.`
+    });
+  }
       subscription_type = rows[0].subscription_type;
       expiry_date = rows[0].expiry_date;
-      workspace = rows[0].workspace; // Retrieve the workspace for existing users
+      workspace = rows[0].workspace; 
+      
     } else {
       isNewUser = true;
       const expiryDateObj = new Date(subscription_date);
@@ -618,15 +628,14 @@ app.post("/check-email", async (req, res) => {
 
     const connection = await pool.getConnection();
     const [rows] = await connection.execute(
-      `SELECT COUNT(*) AS count FROM users WHERE email = ?`,
+      `SELECT login_type FROM users WHERE email = ? LIMIT 1`,
       [email]
     );
     connection.release();
 
-    const emailExists = rows[0].count > 0;
-
-    if (emailExists) {
-      res.status(200).json({ exists: true });
+    if (rows.length > 0) {
+      const loginType = rows[0].login_type;
+      res.status(200).json({ exists: true, login_type: loginType });
     } else {
       res.status(200).json({ exists: false });
     }
@@ -635,6 +644,7 @@ app.post("/check-email", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // Endpoint to send OTP
 app.post("/send-otp", async (req, res) => {
@@ -773,9 +783,9 @@ app.post("/loginUser", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT uid, email, password_hash, workspace 
-         FROM users 
-         WHERE email = ?`,
+      `SELECT uid, email, password_hash, workspace, login_type 
+       FROM users 
+       WHERE email = ?`,
       [email]
     );
     connection.release();
@@ -784,7 +794,14 @@ app.post("/loginUser", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const { uid, password_hash, workspace } = rows[0];
+    const { uid, password_hash, workspace, login_type } = rows[0];
+
+    if (login_type !== "email") {
+      return res.status(400).json({
+        message: `This email is registered using ${login_type}. Please use ${login_type} login.`
+      });
+    }
+
     const isPasswordMatch = await bcrypt.compare(password, password_hash);
 
     if (!isPasswordMatch) {
@@ -796,13 +813,14 @@ app.post("/loginUser", async (req, res) => {
       message: "Login successful",
       userId: uid,
       workspace: workspace,
-      email:email
+      email: email
     });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // update workspace 
 app.post("/updateUser", async (req, res) => {
