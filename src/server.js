@@ -66,6 +66,7 @@ const corsOptions = {
       "http://35.224.113.191",
       "http://34.31.158.201",
       "https://textiletradebuddy-app-378678297066.us-central1.run.app/",
+      "https://thub-web-demo-378678297066.europe-west1.run.app",
       "https://thub-app.wittysand-a4a5c89d.westus2.azurecontainerapps.io"
     ];
 
@@ -343,8 +344,6 @@ if (rows.length > 0) {
     user: existingUser,
   });
 }
-
-
     const insertUserQuery = `
       INSERT INTO users (
         uid, email, phone, name, 
