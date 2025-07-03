@@ -447,12 +447,13 @@ app.get("/getAccessToken", async (req, res) => {
     } else if (origin === "https://demo.thub.tech") {
       params = new URLSearchParams({
         client_id: process.env.GITHUB_CLIENT_ID_DEMO,
-        client_secret: process.env.GITHUB_CLIENT_SECRET_LOCAL,
+        client_secret: process.env.GITHUB_CLIENT_SECRET_DEMO,
         code: req.query.code,
       });
     } else {
       return res.status(400).json({ error: "Invalid Github hostname" });
     }
+    console.log(params.toString(),"params");
 
     const { data } = await axios.post(
       "https://github.com/login/oauth/access_token",
@@ -487,92 +488,68 @@ app.get("/getuserData", async (req, res) => {
       },
     });
 
-
     const { id, login, node_id, name, avatar_url, workspace } = data;
 
     const connection = await pool.getConnection();
 
     try {
-      const [rows] = await connection.execute(
-        "SELECT COUNT(*) as count FROM users WHERE email = ?",
-        [login]
-      );
-
-      let userData;
       const current_date = new Date();
       const effective_subscription_date = current_date.toISOString().split("T")[0]; 
-      let expiry_date = null;
-      let subscription_type = null;
-      let subscription_status = null;
+      
+      // Default values for new users
+      const subscription_type = "free";
+      const subscription_status = "active";
+      const expiryDateObj = new Date(effective_subscription_date);
+      expiryDateObj.setDate(expiryDateObj.getDate() + 90);
+      const expiry_date = expiryDateObj.toISOString().split("T")[0];
 
-      if (rows[0].count === 0) {
-        subscription_type = "free";
-        subscription_status = "active";
+      // Use INSERT ... ON DUPLICATE KEY UPDATE to handle both insert and update
+      const query = `
+        INSERT INTO users 
+        (uid, email, access_token, name, login_type, picture, subscription_type, subscription_status, subscription_date, expiry_date, workspace) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+        email = VALUES(email),
+        name = VALUES(name),
+        picture = VALUES(picture)
+      `;
 
-        const expiryDateObj = new Date(effective_subscription_date);
-        expiryDateObj.setDate(expiryDateObj.getDate() + 90);
-        expiry_date = expiryDateObj.toISOString().split("T")[0];
+      await connection.execute(query, [
+        id,
+        login,
+        node_id,
+        name,
+        "github",
+        avatar_url,
+        subscription_type,
+        subscription_status,
+        effective_subscription_date,
+        expiry_date,
+        workspace || null,
+      ]);
 
-        const query = `
-          INSERT INTO users 
-          (uid, email, access_token, name, login_type, picture, subscription_type, subscription_status, subscription_date, expiry_date, workspace) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+      // Fetch the final user data
+      const [userResult] = await connection.execute(
+        "SELECT * FROM users WHERE uid = ?",
+        [id]
+      );
 
-        await connection.execute(query, [
-          id,
-          login,
-          node_id,
-          name,
-          "github",
-          avatar_url,
-          subscription_type,
-          subscription_status,
-          effective_subscription_date,
-          expiry_date,
-          workspace || null,
-        ]);
+      const userData = userResult[0];
 
-        userData = {
-          uid: id,
-          email: login,
-          access_token: node_id,
-          name,
-          login_type: "github",
-          picture: avatar_url,
-          subscription_type,
-          subscription_status,
-          subscription_date: effective_subscription_date,
-          expiry_date,
-          workspace: workspace || null,
-        };
+      res.status(200).json({
+        uid: userData.uid,
+        email: userData.email,
+        access_token: userData.access_token,
+        name: userData.name,
+        login_type: userData.login_type,
+        picture: userData.picture,
+        subscription_type: userData.subscription_type,
+        subscription_status: userData.subscription_status,
+        subscription_date: userData.subscription_date,
+        expiry_date: userData.expiry_date,
+        workspace: userData.workspace,
+      });
 
-      } else {
-
-        const [existingUser] = await connection.execute(
-          "SELECT * FROM users WHERE email = ?",
-          [login]
-        );
-
-        const existingData = existingUser[0];
-
-        // Use existing subscription details
-        userData = {
-          uid: existingData.uid,
-          email: existingData.email,
-          access_token: existingData.access_token,
-          name: existingData.name,
-          login_type: existingData.login_type,
-          picture: existingData.picture,
-          subscription_type: existingData.subscription_type,
-          subscription_status: existingData.subscription_status,
-          subscription_date: existingData.subscription_date,
-          expiry_date: existingData.expiry_date,
-          workspace: existingData.workspace,
-        };
-      }
-
-      res.status(200).json(userData);
     } finally {
       connection.release();
     }
