@@ -185,7 +185,7 @@ app.post("/api/auth/google", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT subscription_type, expiry_date, workspace FROM users WHERE email = ?`,
+      `SELECT subscription_type, expiry_date, workspace, login_type FROM users WHERE email = ?`,
       [email]
     );
 
@@ -199,9 +199,19 @@ app.post("/api/auth/google", async (req, res) => {
     const subscription_status = "active";
 
     if (rows.length > 0) {
+    const existing_login_type = rows[0].login_type;
+      console.log("Existing login type:", existing_login_type);
+  if (existing_login_type !== "google") {
+    // User is already registered with a different method
+    return res.status(400).json({
+      success: false,
+      message: `This email is already registered using ${existing_login_type}. Please log in using ${existing_login_type}.`
+    });
+  }
       subscription_type = rows[0].subscription_type;
       expiry_date = rows[0].expiry_date;
-      workspace = rows[0].workspace; // Retrieve the workspace for existing users
+      workspace = rows[0].workspace; 
+      
     } else {
       isNewUser = true;
       const expiryDateObj = new Date(subscription_date);
@@ -257,15 +267,6 @@ app.post("/api/auth/google", async (req, res) => {
 
 
       try {
-      const transporter = nodemailer.createTransport({
-  host: "smtp.office365.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "no-reply@thub.tech",
-    pass: process.env.NO_REPLY_MAIL_PASSWORD,
-  },
-});
         await transporter.sendMail(mailOptions);
       } catch (emailError) {
         console.error("Failed to send welcome email:", emailError.message);
@@ -319,19 +320,30 @@ app.post("/microuser", async (req, res) => {
     const connection = await pool.getConnection();
 
     // Check if the user exists
-    const [rows] = await connection.execute(
-      `SELECT * FROM users WHERE email = ?`,
-      [email]
-    );
+const [rows] = await connection.execute(
+  `SELECT * FROM users WHERE email = ?`,
+  [email]
+);
 
-    if (rows.length > 0) {
-      const existingUser = rows[0];
-      await connection.release();
-      return res.json({
-        message: "User already exists",
-        user: existingUser,
-      });
-    }
+if (rows.length > 0) {
+  const existingUser = rows[0];
+
+  // Check if login type matches
+  if (existingUser.login_type !== login_type) {
+    await connection.release();
+    return res.status(400).json({
+      message: `This email is already registered using ${existingUser.login_type}. Please use ${existingUser.login_type} login.`,
+      login_type: existingUser.login_type,
+    });
+  }
+
+  await connection.release();
+  return res.status(200).json({
+    message: "User already exists",
+    user: existingUser,
+  });
+}
+
 
     const insertUserQuery = `
       INSERT INTO users (
@@ -381,15 +393,6 @@ app.post("/microuser", async (req, res) => {
     };
 
     try {
-      const transporter = nodemailer.createTransport({
-        host: "smtp.privateemail.com",
-        port: 465,
-        secure: true,
-        auth: {
-          user: "no-reply@thub.tech",
-          pass: process.env.NO_REPLY_MAIL_PASSWORD,
-        },
-      });
       await transporter.sendMail(mailOptions);
     } catch (emailError) {
       console.error("Failed to send welcome email:", {
@@ -424,21 +427,24 @@ app.get("/getAccessToken", async (req, res) => {
     console.log("Symbol(kHeaders) not found in req");
   }
 
+  console.log(origin,"origin",process.env.GITHUB_CLIENT_ID_DEMO);
+  
+
   try {
     let params;
-    if (origin === "http://localhost:5173") {
+    if (origin === "http://localhost:8080") {
       params = new URLSearchParams({
         client_id: process.env.GITHUB_CLIENT_ID_LOCAL,
         client_secret: process.env.GITHUB_CLIENT_SECRET_LOCAL,
         code: req.query.code,
       });
-    } else if (origin === "https://thub.tech") {
+    } else if (origin === "https://app.thub.tech") {
       params = new URLSearchParams({
         client_id: process.env.GITHUB_CLIENT_ID_APP,
         client_secret: process.env.GITHUB_CLIENT_SECRET_APP,
         code: req.query.code,
       });
-    } else if (origin === "https://thub-web-2-0-0-378678297066.us-central1.run.app") {
+    } else if (origin === "https://demo.thub.tech") {
       params = new URLSearchParams({
         client_id: process.env.GITHUB_CLIENT_ID_DEMO,
         client_secret: process.env.GITHUB_CLIENT_SECRET_LOCAL,
@@ -620,15 +626,14 @@ app.post("/check-email", async (req, res) => {
 
     const connection = await pool.getConnection();
     const [rows] = await connection.execute(
-      `SELECT COUNT(*) AS count FROM users WHERE email = ?`,
+      `SELECT login_type FROM users WHERE email = ? LIMIT 1`,
       [email]
     );
     connection.release();
 
-    const emailExists = rows[0].count > 0;
-
-    if (emailExists) {
-      res.status(200).json({ exists: true });
+    if (rows.length > 0) {
+      const loginType = rows[0].login_type;
+      res.status(200).json({ exists: true, login_type: loginType });
     } else {
       res.status(200).json({ exists: false });
     }
@@ -637,6 +642,7 @@ app.post("/check-email", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // Endpoint to send OTP
 app.post("/send-otp", async (req, res) => {
@@ -669,7 +675,6 @@ app.post("/verify-otp", (req, res) => {
 app.post("/user/register", async (req, res) => {
   try {
     const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace, company, department, role } = req.body;
-
     const uid = generateRandomID();
     const name = `${firstName} ${lastName}`;
     const saltRounds = 10;
@@ -723,15 +728,6 @@ app.post("/user/register", async (req, res) => {
     };
 
     try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.privateemail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: "no-reply@thub.tech",
-          pass: process.env.NO_REPLY_MAIL_PASSWORD,
-        },
-      });
 
       await transporter.sendMail(mailOptions);
       console.log("Welcome email sent successfully");
@@ -774,9 +770,9 @@ app.post("/loginUser", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT uid, email, password_hash, workspace 
-         FROM users 
-         WHERE email = ?`,
+      `SELECT uid, email, password_hash, workspace, login_type 
+       FROM users 
+       WHERE email = ?`,
       [email]
     );
     connection.release();
@@ -785,7 +781,14 @@ app.post("/loginUser", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const { uid, password_hash, workspace } = rows[0];
+    const { uid, password_hash, workspace, login_type } = rows[0];
+
+    if (login_type !== "email") {
+      return res.status(400).json({
+        message: `This email is registered using ${login_type}. Please use ${login_type} login.`
+      });
+    }
+
     const isPasswordMatch = await bcrypt.compare(password, password_hash);
 
     if (!isPasswordMatch) {
@@ -797,13 +800,14 @@ app.post("/loginUser", async (req, res) => {
       message: "Login successful",
       userId: uid,
       workspace: workspace,
-      email:email
+      email: email
     });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 // update workspace 
 app.post("/updateUser", async (req, res) => {
