@@ -427,6 +427,9 @@ app.get("/getAccessToken", async (req, res) => {
     console.log("Symbol(kHeaders) not found in req");
   }
 
+  console.log(origin,"origin",process.env.GITHUB_CLIENT_ID_DEMO);
+  
+
   try {
     let params;
     if (origin === "http://localhost:8080") {
