@@ -453,6 +453,7 @@ app.get("/getAccessToken", async (req, res) => {
     } else {
       return res.status(400).json({ error: "Invalid Github hostname" });
     }
+    console.log(params.toString(),"params");
 
     const { data } = await axios.post(
       "https://github.com/login/oauth/access_token",
