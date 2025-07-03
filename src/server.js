@@ -447,7 +447,7 @@ app.get("/getAccessToken", async (req, res) => {
     } else if (origin === "https://demo.thub.tech") {
       params = new URLSearchParams({
         client_id: process.env.GITHUB_CLIENT_ID_DEMO,
-        client_secret: process.env.GITHUB_CLIENT_SECRET_LOCAL,
+        client_secret: process.env.GITHUB_CLIENT_SECRET_DEMO,
         code: req.query.code,
       });
     } else {
