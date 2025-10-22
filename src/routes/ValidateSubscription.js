@@ -45,21 +45,20 @@ validateSubscriptionRoute.post('/', async (req, res) => {
     planId,
     user_id
   } = req.body;
-
   try {
     const respBody = {
       subscription_id: razorpay_subscription_id,
       payment_id: razorpay_payment_id
     };
 
-    const secret = process.env.RAZORPAY_SECRET;
+    const secret = process.env.RAZORPAY_TEST_KEY_SECRET;
 
     // Validate the signature
     const isValid = validatePaymentVerification(respBody, razorpay_signature, secret);
 
     if (isValid) {
       const subscriptionType = 'pro';
-      const duration = planId === 'plan_PhdG5GMrYCqm6Z' ? 'monthly' : 'yearly';
+      const duration = planId === 'plan_PguBI476fHCWGG' ? 'monthly' : 'yearly';
 
       await updateSubscriptionInDB(razorpay_subscription_id, user_id, subscriptionType, duration);
 
