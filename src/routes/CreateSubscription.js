@@ -14,6 +14,7 @@ createSubscriptionRoute.post('/', async (req, res) => {
   
       const { planId, customerEmail } = req.body;
       const planDetails = await razorpay.plans.fetch(planId);
+      console.log(planDetails,"plan details")
       const planAmount = planDetails.item.amount / 100; 
   
       // Map Plan ID to Subscription Type and Duration
