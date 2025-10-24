@@ -3,13 +3,13 @@ import express from "express";
 
 
 const createSubscriptionRoute = express.Router();
-console.log(process.env.RAZORPAY_TEST_KEY_ID,"key id")
+console.log(process.env.RAZORPAY_KEY_ID,"key id")
 
 createSubscriptionRoute.post('/', async (req, res) => {
     try {
       const razorpay = new Razorpay({
-        key_id: process.env.RAZORPAY_TEST_KEY_ID,
-        key_secret: process.env.RAZORPAY_TEST_KEY_SECRET,
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_SECRET,
       });
   
       const { planId, customerEmail } = req.body;
@@ -19,7 +19,7 @@ createSubscriptionRoute.post('/', async (req, res) => {
   
       // Map Plan ID to Subscription Type and Duration
       let subscriptionType, duration;
-      if (planId ==='plan_PguBI476fHCWGG') {
+      if (planId ==='plan_PhdG5GMrYCqm6Z') {
         subscriptionType = 'pro';
         duration = 'monthly';
       } else if (planId === 'plan_PhdbTzJPTel2e3') {
