@@ -719,22 +719,32 @@ app.post("/user/register", async (req, res) => {
   }
 });
 
-
 app.get("/userdata", async (req, res) => {
   const { userId } = req.query;
-  console.log(userId,"userId")
+
   try {
     const connection = await pool.getConnection();
 
-    const fetchUser = `SELECT * FROM users WHERE uid = ?`;
-    const user = await connection.execute(fetchUser, [userId]);
+    const [rows] = await connection.execute(
+      `SELECT uid, email, name, picture, login_type, subscription_type, subscription_duration, subscription_date, expiry_date, workspace
+       FROM users 
+       WHERE uid = ?`,
+      [userId]
+    );
+
     connection.release();
-    res.status(200).send(user[0]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(rows);  // Frontend expects array
   } catch (error) {
-    console.error("Error creating new user:", error);
-    res
-      .status(500)
-      .json({ message: "Error creating new user", error: error.message });
+    console.error("Error fetching user data:", error);
+    res.status(500).json({
+      message: "Error fetching user",
+      error: error.message,
+    });
   }
 });
 
@@ -772,6 +782,7 @@ app.post("/loginUser", async (req, res) => {
     }
 
     // const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
+    console.log(workspace,"workspace")
     res.status(200).json({
       message: "Login successful",
       userId: uid,
