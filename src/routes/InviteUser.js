@@ -6,8 +6,8 @@ import jwt from "jsonwebtoken";
 const inviteRoute = express.Router();
 
 inviteRoute.post('/', async (req, res) => {
-  const { email, workspace } = req.body;
-  const inviterId = req.user.id;
+  const { email, workspace ,uid } = req.body;
+  const inviterId = uid;
   const selectedWorkspace = workspace || "app";
 
   if (!email || !selectedWorkspace) {
@@ -65,7 +65,7 @@ inviteRoute.post('/', async (req, res) => {
     );
 
     // 6. Send email
-    const inviteLink = `https://app.thub.tech/join?token=${token}`;
+    const inviteLink = `https:/${workspace}.thub.tech/?token=${token}`;
     await transporter.sendMail({
       from: "no-reply@thub.tech",
       to: email,
