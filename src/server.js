@@ -657,7 +657,7 @@ app.post("/user/register", async (req, res) => {
     const password_hash = await bcrypt.hash(password, saltRounds);
 
     const connection = await pool.getConnection();
-
+    const userRole = "admin";
     // Set the subscription date and calculate expiry date for free plan
     const current_date = new Date();
     const effective_subscription_date = subscription_date || current_date.toISOString().split("T")[0]; // Default to today's date if not provided
@@ -688,7 +688,7 @@ app.post("/user/register", async (req, res) => {
     workspace || null,
     company || null,
     department || null,
-    role || null,
+    userRole || null,
     subscription_status || 'active',
   ]);
   
@@ -726,7 +726,7 @@ app.get("/userdata", async (req, res) => {
     const connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      `SELECT uid, email, name, picture, login_type, subscription_type, subscription_duration, subscription_date, expiry_date, workspace
+      `SELECT uid, email, name, picture, login_type, subscription_type, subscription_duration, subscription_date, expiry_date, role, workspace
        FROM users 
        WHERE uid = ?`,
       [userId]
@@ -738,7 +738,7 @@ app.get("/userdata", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json(rows);  // Frontend expects array
+    res.status(200).json(rows);  
   } catch (error) {
     console.error("Error fetching user data:", error);
     res.status(500).json({
@@ -1024,6 +1024,25 @@ app.post('/subscription-webhook-endpoint', async (req, res) => {
 
     res.json({ status: 'success' });
 });
+
+// verify invite
+
+inviteRoute.post("/verify-invite", (req, res) => {
+  const { token } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    return res.status(200).json({
+      workspaceId: decoded.workspaceId,
+      email: decoded.email
+    });
+
+  } catch (err) {
+    return res.status(400).json({ message: "Invalid or expired token" });
+  }
+});
+
 
 
 app.listen(PORT,async () => {
