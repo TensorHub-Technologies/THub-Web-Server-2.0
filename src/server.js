@@ -125,6 +125,18 @@ app.use("/api/contactmail",contactMail)
 // agent scheduler
 app.use("/api/schedules", schedulerAgent)
 
+app.use('/.well-known', express.static('public/.well-known', {
+  dotfiles: 'allow',
+  setHeaders: (res) => {
+    res.setHeader("Content-Type", "application/json");
+  }
+}));
+
+app.use(express.static('dist'));  // If Vite build folder is dist
+app.get('*', (req, res) => {
+  res.sendFile('dist/index.html', { root: '.' });
+});
+
 async function loadScheduledJobs() {
     const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
     jobs.forEach(scheduleJob);
