@@ -26,6 +26,8 @@ import payuPaymentRoute from "./routes/PayUMoneyRoutes.js";
 import emailTriggerAgent from "./routes/AgentEmailTool.js";
 import contactMail from "./routes/ContactMail.js";
 import {schedulerAgent,scheduleJob} from "./routes/SchedulerAgent.js";
+import createCourseOrderRoute from "./routes/CreateCourseOrder.js";
+import verifyCoursePaymentRoute from "./routes/VerifyCoursePayment.js";
 
 dotenv.config();
 
@@ -124,6 +126,12 @@ app.use("/api/contactmail",contactMail)
 
 // agent scheduler
 app.use("/api/schedules", schedulerAgent)
+
+// subscription
+app.use("/api/create-course-order",createCourseOrderRoute)
+
+// course verify
+app.use("/api/verify-course-payment",verifyCoursePaymentRoute)
 
 async function loadScheduledJobs() {
     const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
