@@ -26,12 +26,9 @@ import payuPaymentRoute from "./routes/PayUMoneyRoutes.js";
 import emailTriggerAgent from "./routes/AgentEmailTool.js";
 import contactMail from "./routes/ContactMail.js";
 import {schedulerAgent,scheduleJob} from "./routes/SchedulerAgent.js";
-<<<<<<< HEAD
 import studentEnroll from "./routes/StudentEnroll.js";
-=======
 import createCourseOrderRoute from "./routes/CreateCourseOrder.js";
 import verifyCoursePaymentRoute from "./routes/VerifyCoursePayment.js";
->>>>>>> c99c4d820a0789e0cd77dbff3965da6373b7ddc0
 
 dotenv.config();
 
