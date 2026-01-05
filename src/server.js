@@ -26,6 +26,7 @@ import payuPaymentRoute from "./routes/PayUMoneyRoutes.js";
 import emailTriggerAgent from "./routes/AgentEmailTool.js";
 import contactMail from "./routes/ContactMail.js";
 import {schedulerAgent,scheduleJob} from "./routes/SchedulerAgent.js";
+import studentEnroll from "./routes/StudentEnroll.js";
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       "https://thub-test-378678297066.us-central1.run.app",
+      "https://thub-app.wittysand-a4a5c89d.westus2.azurecontainerapps.io",
       "https://thub-web-2-0-0-378678297066.us-central1.run.app",
       "https://textiletradebuddy-web-378678297066.us-central1.run.app",
       "https://textiletradebuddy-app-378678297066.us-central1.run.app",
@@ -67,7 +69,6 @@ const corsOptions = {
       "http://34.31.158.201",
       "https://textiletradebuddy-app-378678297066.us-central1.run.app/",
       "https://thub-web-demo-378678297066.europe-west1.run.app",
-      "https://thub-app.wittysand-a4a5c89d.westus2.azurecontainerapps.io"
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
@@ -124,6 +125,9 @@ app.use("/api/contactmail",contactMail)
 
 // agent scheduler
 app.use("/api/schedules", schedulerAgent)
+
+// user course enroll
+app.use("/api/student-enroll",studentEnroll)
 
 async function loadScheduledJobs() {
     const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
