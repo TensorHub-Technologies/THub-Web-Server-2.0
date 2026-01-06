@@ -23,5 +23,5 @@ jobs:
               appSourcePath: ${{ github.workspace }}
               dockerfilePath: Dockerfile
               acrName: ca7a4dd637e6acr
-              containerAppName: thub-server
+              containerAppName: thub-server-dev
               resourceGroup: thub-dev
