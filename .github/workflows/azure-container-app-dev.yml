@@ -21,6 +21,6 @@ jobs:
             uses: azure/container-apps-deploy-action@v1
             with:
               appSourcePath: ${{ github.workspace }}
-              acrName: ca7a4dd637e6acr
+              acrName: thubdev
               containerAppName: thub-server
               resourceGroup: thub-dev
