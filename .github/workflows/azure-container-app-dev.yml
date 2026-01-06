@@ -1,26 +1,38 @@
-name: Azure Container Apps Deploy
+name: Build and Deploy to Azure Container Apps
 
 on:
-    push:
-        branches:
-            - dev
+  push:
+    branches:
+      - dev
+
+env:
+  IMAGE_NAME: thub-server
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
-        
-        steps:
-          - uses: actions/checkout@v3
-          
-          - name: 'Login via Service Principal'
-            uses: azure/login@v1
-            with:
-              creds: ${{ secrets.AZURE_CREDENTIALS }}
-        
-          - name: Build and deploy Container App
-            uses: azure/container-apps-deploy-action@v1
-            with:
-              appSourcePath: ${{ github.workspace }}
-              acrName: thubdev
-              containerAppName: thub-server
-              resourceGroup: thub-dev
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Login to Azure
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS_DEV }}
+
+    - name: Login to ACR
+      run: |
+        az acr login --name ${{ secrets.ACR_DEV }}
+
+    - name: Build and Push Image
+      run: |
+        docker build -t ${{ secrets.ACR_DEV }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+        docker push ${{ secrets.ACR_DEV }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+    - name: Deploy to Azure Container App
+      uses: azure/container-apps-deploy-action@v2
+      with:
+        resourceGroup: ${{ secrets.RESOURCE_GROUP_DEV }}
+        containerAppName: ${{ secrets.CONTAINER_APP_DEV }}
+        imageToDeploy: ${{ secrets.ACR_DEV }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
