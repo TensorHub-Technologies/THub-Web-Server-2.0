@@ -3,6 +3,7 @@ import express from "express";
 
 
 const createSubscriptionRoute = express.Router();
+console.log(process.env.RAZORPAY_KEY_ID,"key id")
 
 createSubscriptionRoute.post('/', async (req, res) => {
     try {
@@ -13,6 +14,7 @@ createSubscriptionRoute.post('/', async (req, res) => {
   
       const { planId, customerEmail } = req.body;
       const planDetails = await razorpay.plans.fetch(planId);
+      console.log(planDetails,"plan details")
       const planAmount = planDetails.item.amount / 100; 
   
       // Map Plan ID to Subscription Type and Duration
@@ -47,7 +49,7 @@ createSubscriptionRoute.post('/', async (req, res) => {
       const subscription = await razorpay.subscriptions.create({
         plan_id: planId,
         total_count: interval,
-        customer_notify: 1,
+        customer_notify: 1
       });
       res.json({
         id: subscription.id,

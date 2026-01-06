@@ -45,7 +45,6 @@ validateSubscriptionRoute.post('/', async (req, res) => {
     planId,
     user_id
   } = req.body;
-
   try {
     const respBody = {
       subscription_id: razorpay_subscription_id,

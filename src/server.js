@@ -26,6 +26,9 @@ import payuPaymentRoute from "./routes/PayUMoneyRoutes.js";
 import emailTriggerAgent from "./routes/AgentEmailTool.js";
 import contactMail from "./routes/ContactMail.js";
 import {schedulerAgent,scheduleJob} from "./routes/SchedulerAgent.js";
+import studentEnroll from "./routes/StudentEnroll.js";
+import createCourseOrderRoute from "./routes/CreateCourseOrder.js";
+import verifyCoursePaymentRoute from "./routes/VerifyCoursePayment.js";
 
 dotenv.config();
 
@@ -49,6 +52,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       "https://thub-test-378678297066.us-central1.run.app",
+      "https://thub-app.wittysand-a4a5c89d.westus2.azurecontainerapps.io",
       "https://thub-web-2-0-0-378678297066.us-central1.run.app",
       "https://textiletradebuddy-web-378678297066.us-central1.run.app",
       "https://textiletradebuddy-app-378678297066.us-central1.run.app",
@@ -67,7 +71,6 @@ const corsOptions = {
       "http://34.31.158.201",
       "https://textiletradebuddy-app-378678297066.us-central1.run.app/",
       "https://thub-web-demo-378678297066.europe-west1.run.app",
-      "https://thub-app.wittysand-a4a5c89d.westus2.azurecontainerapps.io"
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
@@ -124,6 +127,14 @@ app.use("/api/contactmail",contactMail)
 
 // agent scheduler
 app.use("/api/schedules", schedulerAgent)
+
+// user course enroll
+app.use("/api/student-enroll",studentEnroll)
+// subscription
+app.use("/api/create-course-order",createCourseOrderRoute)
+
+// course verify
+app.use("/api/verify-course-payment",verifyCoursePaymentRoute)
 
 async function loadScheduledJobs() {
     const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
@@ -657,7 +668,7 @@ app.post("/user/register", async (req, res) => {
     const password_hash = await bcrypt.hash(password, saltRounds);
 
     const connection = await pool.getConnection();
-
+    const userRole = "admin";
     // Set the subscription date and calculate expiry date for free plan
     const current_date = new Date();
     const effective_subscription_date = subscription_date || current_date.toISOString().split("T")[0]; // Default to today's date if not provided
@@ -688,7 +699,7 @@ app.post("/user/register", async (req, res) => {
     workspace || null,
     company || null,
     department || null,
-    role || null,
+    userRole || null,
     subscription_status || 'active',
   ]);
   
@@ -719,22 +730,32 @@ app.post("/user/register", async (req, res) => {
   }
 });
 
-
 app.get("/userdata", async (req, res) => {
   const { userId } = req.query;
-  console.log(userId,"userId")
+
   try {
     const connection = await pool.getConnection();
 
-    const fetchUser = `SELECT * FROM users WHERE uid = ?`;
-    const user = await connection.execute(fetchUser, [userId]);
+    const [rows] = await connection.execute(
+      `SELECT uid, email, name, picture, login_type, subscription_type, subscription_duration, subscription_date, expiry_date, role, workspace
+       FROM users 
+       WHERE uid = ?`,
+      [userId]
+    );
+
     connection.release();
-    res.status(200).send(user[0]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(rows);  
   } catch (error) {
-    console.error("Error creating new user:", error);
-    res
-      .status(500)
-      .json({ message: "Error creating new user", error: error.message });
+    console.error("Error fetching user data:", error);
+    res.status(500).json({
+      message: "Error fetching user",
+      error: error.message,
+    });
   }
 });
 
@@ -772,6 +793,7 @@ app.post("/loginUser", async (req, res) => {
     }
 
     // const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
+    console.log(workspace,"workspace")
     res.status(200).json({
       message: "Login successful",
       userId: uid,
@@ -1013,6 +1035,25 @@ app.post('/subscription-webhook-endpoint', async (req, res) => {
 
     res.json({ status: 'success' });
 });
+
+// verify invite
+
+inviteRoute.post("/verify-invite", (req, res) => {
+  const { token } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    return res.status(200).json({
+      workspaceId: decoded.workspaceId,
+      email: decoded.email
+    });
+
+  } catch (err) {
+    return res.status(400).json({ message: "Invalid or expired token" });
+  }
+});
+
 
 
 app.listen(PORT,async () => {
