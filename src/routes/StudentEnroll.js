@@ -16,7 +16,6 @@ studentEnroll.post("/",async(req,res)=>{
       designation,
       description,
     } = req.body;
-
     const sql = `
       INSERT INTO student_enrollments
       (first_name, last_name, email, course, current_status,
