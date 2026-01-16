@@ -29,6 +29,8 @@ import {schedulerAgent,scheduleJob} from "./routes/SchedulerAgent.js";
 import studentEnroll from "./routes/StudentEnroll.js";
 import createCourseOrderRoute from "./routes/CreateCourseOrder.js";
 import verifyCoursePaymentRoute from "./routes/VerifyCoursePayment.js";
+import { sendInviteEmail } from "./config/sendInviteEmail.js";
+
 
 dotenv.config();
 
@@ -71,6 +73,7 @@ const corsOptions = {
       "http://34.31.158.201",
       "https://textiletradebuddy-app-378678297066.us-central1.run.app/",
       "https://thub-web-demo-378678297066.europe-west1.run.app",
+      "https://thub-server.wittycoast-8619cdd6.westus2.azurecontainerapps.io"
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
@@ -661,103 +664,111 @@ app.post("/verify-otp", (req, res) => {
 // Endpoint to register a user
 app.post("/user/register", async (req, res) => {
   try {
-    const { email, firstName, lastName, phone, password, login_type, subscription_type, subscription_duration, subscription_date, workspace, company, department, role } = req.body;
+    const {
+      email,
+      firstName,
+      lastName,
+      phone,
+      password,
+      login_type,
+      subscription_type,
+      subscription_duration,
+      subscription_date
+    } = req.body;
+
     const uid = generateRandomID();
     const name = `${firstName} ${lastName}`;
-    const saltRounds = 10;
-    const password_hash = await bcrypt.hash(password, saltRounds);
+    const password_hash = await bcrypt.hash(password, 10);
 
-    const connection = await pool.getConnection();
-    const userRole = "admin";
-    // Set the subscription date and calculate expiry date for free plan
-    const current_date = new Date();
-    const effective_subscription_date = subscription_date || current_date.toISOString().split("T")[0]; // Default to today's date if not provided
+    const effectiveDate =
+      subscription_date || new Date().toISOString().split("T")[0];
+
     let expiry_date = null;
-    const subscription_status = "active";
-
     if (subscription_type === "free") {
-      const expiryDateObj = new Date(effective_subscription_date);
-      expiryDateObj.setDate(expiryDateObj.getDate() + 90); 
-      expiry_date = expiryDateObj.toISOString().split("T")[0]; 
-    }
-    const insertUserQuery = `
-    INSERT INTO users (uid, email, phone, login_type, name, password_hash, subscription_type, subscription_duration, subscription_date, expiry_date, workspace, company, department, role, subscription_status) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-  
-  await connection.execute(insertUserQuery, [
-    uid || null,
-    email || null,
-    phone || null,
-    login_type || null,
-    name || null,
-    password_hash || null,
-    subscription_type || "free",
-    subscription_duration || null,
-    effective_subscription_date,
-    expiry_date,
-    workspace || null,
-    company || null,
-    department || null,
-    userRole || null,
-    subscription_status || 'active',
-  ]);
-  
-    // Send welcome email to the new user
-    const mailOptions = {
-      from: '"THub" <no-reply@thub.tech>',
-      to: email,
-      subject: "Welcome to THub!",
-      text: `Hi ${name},\n\nWelcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.\n\nBest regards,\nThe THub Team`,
-      html: `<p>Hi <strong>${name}</strong>,</p>
-             <p>Welcome to THub! We're excited to have you onboard. Explore our platform and get the most out of your subscription.</p>
-             <p>Best regards,<br>The THub Team</p>`,
-    };
-
-    try {
-
-      await transporter.sendMail(mailOptions);
-      console.log("Welcome email sent successfully");
-    } catch (emailError) {
-      console.error("Failed to send welcome email:", emailError.message);
+      const d = new Date(effectiveDate);
+      d.setDate(d.getDate() + 90);
+      expiry_date = d.toISOString().split("T")[0];
     }
 
-    res.status(200).json({ message: "User successfully added", userId: uid, workspace: workspace,email,name });
-    connection.release();
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
-app.get("/userdata", async (req, res) => {
-  const { userId } = req.query;
-
-  try {
     const connection = await pool.getConnection();
 
-    const [rows] = await connection.execute(
-      `SELECT uid, email, name, picture, login_type, subscription_type, subscription_duration, subscription_date, expiry_date, role, workspace
-       FROM users 
-       WHERE uid = ?`,
-      [userId]
+    await connection.execute(
+      `
+      INSERT INTO users (
+        uid, email, phone, login_type, name, password_hash,
+        subscription_type, subscription_duration, subscription_date,
+        expiry_date, subscription_status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+      `,
+      [
+        uid,
+        email,
+        phone,
+        login_type,
+        name,
+        password_hash,
+        subscription_type || "free",
+        subscription_duration || null,
+        effectiveDate,
+        expiry_date
+      ]
     );
 
     connection.release();
 
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.status(200).json(rows);  
-  } catch (error) {
-    console.error("Error fetching user data:", error);
-    res.status(500).json({
-      message: "Error fetching user",
-      error: error.message,
+    res.json({
+      message: "User registered",
+      userId: uid,
+      email,
+      name
     });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Registration failed" });
   }
 });
+
+
+app.get('/userdata', async (req, res) => {
+  const { userId } = req.query
+
+  try {
+    const connection = await pool.getConnection()
+
+    const [rows] = await connection.execute(
+      `SELECT
+        uid,
+        email,
+        name,
+        picture,
+        login_type,
+        subscription_type,
+        subscription_duration,
+        subscription_date,
+        expiry_date,
+        role,
+        workspace,
+        workspaceUid,
+        profile_completed
+      FROM users
+      WHERE uid = ?`,
+      [userId]
+    )
+
+    connection.release()
+
+    if (!rows.length) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    res.json(rows[0])
+  } catch (e) {
+    res.status(500).json({ message: e.message })
+  }
+})
+
 
 // login register
 app.post("/loginUser", async (req, res) => {
@@ -806,94 +817,677 @@ app.post("/loginUser", async (req, res) => {
   }
 });
 
+// update user (FINAL)
+app.post('/updateUser', async (req, res) => {
+  const {
+    uid,
+    company,
+    department,
+    designation,
+    workspace,
+    role = 'member',
+    profileCompletedOnly
+  } = req.body
 
-// update workspace 
-app.post("/updateUser", async (req, res) => {
-  const { uid, department, role, designation, company, workspace } = req.body;
-
-  let workspaceName=workspace.toString().toLowerCase().trim();
-
-  if (!uid || !workspaceName) {
-    return res.status(400).json({ message: "User ID and workspace name are required" });
+  if (!uid) {
+    return res.status(400).json({ message: 'UID required' })
   }
+
+  const connection = await pool.getConnection()
 
   try {
-    const connection = await pool.getConnection();
-
-    // Check if workspace already exists
-    const [workspaceResult] = await connection.execute(
-      "SELECT id FROM workspaces WHERE name = ?",
-      [workspaceName]
-    );
-
-    let workspaceId;
-    if (workspaceResult.length > 0) {
-      workspaceId = workspaceResult[0].id;
-    } else {
-      const newWorkspaceId = uuidv4();
-
-      const [newWorkspaceResult] = await connection.execute(
-        "INSERT INTO workspaces (id, name, created_by) VALUES (?, ?, ?)",
-        [newWorkspaceId, workspaceName, uid]
-      );
-
-      workspaceId = newWorkspaceId;
-    }
-
-    const [userCountResult] = await connection.execute(
-      "SELECT COUNT(*) AS userCount FROM workspace_users WHERE workspace_name = ?",
-      [workspaceName]
-    );
-
-    const userCount = userCountResult[0].userCount;
-
-    if (userCount >= 5) {
-      connection.release();
-      return res.status(400).json({ message: `Workspace "${workspaceName}" already has the maximum of 5 users.` });
-    }
-
-    const [userWorkspaceResult] = await connection.execute(
-      "SELECT * FROM workspace_users WHERE workspace_id = ? AND user_id = ?",
-      [workspaceId, uid]
-    );
-
-    if (userWorkspaceResult.length === 0) {
+    // ----------------------------------
+    // 1️⃣ SKIP PROFILE (NORMAL USER)
+    // ----------------------------------
+    if (profileCompletedOnly) {
       await connection.execute(
-        "INSERT INTO workspace_users (workspace_id, user_id, role, workspace_name) VALUES (?, ?, ?, ?)",
-        [workspaceId, uid, role || "member", workspaceName]
-      );
-    } else {
-      if (role) {
-        await connection.execute(
-          "UPDATE workspace_users SET role = ?, workspace_name = ? WHERE workspace_id = ? AND user_id = ?",
-          [role, workspaceName, workspaceId, uid]
-        );
-      }
+        `UPDATE users SET profile_completed = 1 WHERE uid = ?`,
+        [uid]
+      )
+      return res.json({ message: 'Profile skipped' })
     }
 
-    // Update user details in the `users` table
-    const updateUserQuery = `
-      UPDATE users 
-      SET department = ?, designation = ?, company = ?, workspace = ?, workspaceUid = ?
-      WHERE uid = ?
-    `;
-    await connection.execute(updateUserQuery, [
-      department,
-      designation,
-      company,
-      workspaceName,
-      workspaceId,
-      uid,
-    ]);
+    if (!workspace) {
+      return res.status(400).json({ message: 'Workspace required' })
+    }
 
+    const workspaceName = workspace.toLowerCase().trim()
+
+    // Check workspace existence
+    const [ws] = await connection.execute(
+      `SELECT id FROM workspaces WHERE name = ?`,
+      [workspaceName]
+    )
+
+    // ----------------------------------
+    // 2️⃣ INVITE FLOW (WORKSPACE EXISTS)
+    // ----------------------------------
+    if (ws.length) {
+      const workspaceId = ws[0].id
+
+      await connection.beginTransaction()
+
+      // Avoid duplicate joins
+      await connection.execute(
+        `INSERT IGNORE INTO workspace_users (workspace_id, user_id, role)
+         VALUES (?, ?, ?)`,
+        [workspaceId, uid, role]
+      )
+
+      await connection.execute(
+        `UPDATE users
+         SET company = ?,
+             department = ?,
+             designation = ?,
+             workspace = ?,
+             workspaceUid = ?,
+             role = ?,
+             profile_completed = 1
+         WHERE uid = ?`,
+        [
+          company,
+          department,
+          designation,
+          workspaceName,
+          workspaceId,
+          role,
+          uid
+        ]
+      )
+
+      await connection.commit()
+      return res.json({ message: 'Joined workspace' })
+    }
+
+    // ----------------------------------
+    // 3️⃣ FIRST-TIME WORKSPACE CREATION
+    // ----------------------------------
+    const workspaceId = uuidv4()
+
+    await connection.beginTransaction()
+
+    await connection.execute(
+      `INSERT INTO workspaces (id, name, created_by)
+       VALUES (?, ?, ?)`,
+      [workspaceId, workspaceName, uid]
+    )
+
+    await connection.execute(
+      `INSERT INTO workspace_users (workspace_id, user_id, role)
+       VALUES (?, ?, 'admin')`,
+      [workspaceId, uid]
+    )
+
+    await connection.execute(
+      `UPDATE users
+       SET company = ?,
+           department = ?,
+           designation = ?,
+           workspace = ?,
+           workspaceUid = ?,
+           role = 'admin',
+           profile_completed = 1
+       WHERE uid = ?`,
+      [
+        company,
+        department,
+        designation,
+        workspaceName,
+        workspaceId,
+        uid
+      ]
+    )
+
+    await connection.commit()
+    res.json({ message: 'Workspace created' })
+
+  } catch (e) {
+    await connection.rollback()
+    res.status(500).json({ message: e.message })
+  } finally {
+    connection.release()
+  }
+})
+
+
+
+
+app.post('/inviteUser', async (req, res) => {
+  const { email, workspace, invitedBy, role = 'member' } = req.body
+
+  if (!email || !workspace || !invitedBy) {
+    return res.status(400).json({ message: 'Missing fields' })
+  }
+
+  const workspaceName = workspace.toLowerCase().trim()
+  const token = crypto.randomBytes(32).toString('hex')
+  const inviteId = uuidv4()
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+  let connection
+  try {
+    connection = await pool.getConnection()
+
+    // Workspace
+    const [ws] = await connection.execute(
+      `SELECT id FROM workspaces WHERE name = ?`,
+      [workspaceName]
+    )
+
+    if (!ws.length) {
+      return res.status(404).json({ message: 'Workspace not found' })
+    }
+
+    const workspaceId = ws[0].id
+
+    // Admin check
+    const [admin] = await connection.execute(
+      `
+      SELECT role FROM workspace_users
+      WHERE workspace_id = ? AND user_id = ?
+      `,
+      [workspaceId, invitedBy]
+    )
+
+    if (!admin.length || admin[0].role !== 'admin') {
+      return res.status(403).json({ message: 'Only admin can invite users' })
+    }
+
+    // Save invite
+    await connection.execute(
+      `
+      INSERT INTO workspace_invites
+      (id, email, workspace_id, workspace_name, role, token, invited_by, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        inviteId,
+        email,
+        workspaceId,
+        workspaceName,
+        role,
+        token,
+        invitedBy,
+        expiresAt
+      ]
+    )
+
+    // TODO: send email
+    // sendInviteEmail({ to: email, token })
+
+    return res.json({ message: 'Invite sent' })
+
+  } catch (e) {
+    return res.status(500).json({ message: e.message })
+  } finally {
+    if (connection) connection.release()
+  }
+})
+
+
+app.get("/invite/validate", async (req, res) => {
+  const { token } = req.query;
+
+  const connection = await pool.getConnection();
+  try {
+    const [rows] = await connection.execute(
+      `SELECT email, workspace_name, role, used, expires_at
+       FROM workspace_invites WHERE token = ?`,
+      [token]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ valid: false });
+    }
+
+    const invite = rows[0];
+
+    if (invite.used || new Date(invite.expires_at) < new Date()) {
+      return res.status(400).json({ valid: false });
+    }
+
+    res.json({
+      valid: true,
+      email: invite.email,
+      workspace: invite.workspace_name,
+      role: invite.role
+    });
+  } finally {
     connection.release();
-
-    res.status(200).send({ message: "User data updated successfully" });
-  } catch (error) {
-    console.error("Error updating user data:", error);
-    res.status(500).json({ message: "Error updating user data", error: error.message });
   }
 });
+
+
+app.post("/invite/accept", async (req, res) => {
+  const { token, uid, email } = req.body;
+  const connection = await pool.getConnection();
+
+  try {
+    const [invites] = await connection.execute(
+      `SELECT * FROM workspace_invites
+       WHERE token=? AND used=FALSE AND expires_at > NOW()`,
+      [token]
+    );
+
+    if (!invites.length) {
+      return res.status(400).json({ message: "Invalid invite" });
+    }
+
+    const invite = invites[0];
+
+    if (invite.email !== email) {
+      return res.status(403).json({ message: "Email mismatch" });
+    }
+
+    const [exists] = await connection.execute(
+      `SELECT 1 FROM workspace_users
+       WHERE workspace_id=? AND user_id=?`,
+      [invite.workspace_id, uid]
+    );
+    if (exists.length) {
+      return res.json({ message: "Already joined" });
+    }
+
+    await connection.beginTransaction();
+
+    await connection.execute(
+      `INSERT INTO workspace_users (workspace_id, user_id, role)
+       VALUES (?, ?, ?)`,
+      [invite.workspace_id, uid, invite.role]
+    );
+
+    await connection.execute(
+      `UPDATE users SET workspaceUid=? WHERE uid=?`,
+      [invite.workspace_id, uid]
+    );
+
+    await connection.execute(
+      `UPDATE workspace_invites SET used=TRUE WHERE token=?`,
+      [token]
+    );
+
+    await connection.commit();
+    res.json({ message: "Joined workspace" });
+
+  } catch (e) {
+    await connection.rollback();
+    res.status(500).json({ message: e.message });
+  } finally {
+    connection.release();
+  }
+});
+
+
+
+app.get('/workspaceUsers', async (req, res) => {
+  const { workspace } = req.query
+
+  if (!workspace) {
+    return res.status(400).json({ message: 'Workspace required' })
+  }
+
+  const workspaceName = workspace.toLowerCase().trim()
+  let connection
+
+  try {
+    connection = await pool.getConnection()
+
+    // 1️⃣ Get workspace id
+    const [ws] = await connection.execute(
+      `SELECT id FROM workspaces WHERE name = ?`,
+      [workspaceName]
+    )
+
+    if (!ws.length) {
+      return res.status(404).json({ message: 'Workspace not found' })
+    }
+
+    const workspaceId = ws[0].id
+
+    // 2️⃣ Fetch users
+    const [users] = await connection.execute(
+      `
+      SELECT
+        u.uid,
+        u.name,
+        u.company,
+        u.department,
+        u.designation,
+        wu.role
+      FROM workspace_users wu
+      JOIN users u ON u.uid = wu.user_id
+      WHERE wu.workspace_id = ?
+      ORDER BY wu.role DESC, u.name
+      `,
+      [workspaceId]
+    )
+
+    return res.json(users)
+
+  } catch (error) {
+    console.error('workspaceUsers error:', error)
+    return res.status(500).json({
+      message: 'Failed to fetch users'
+    })
+  } finally {
+    if (connection) connection.release()
+  }
+})
+
+
+app.delete('/workspaceUser', async (req, res) => {
+  const { userId, workspace } = req.body
+
+  if (!userId || !workspace) {
+    return res.status(400).json({ message: 'Invalid request' })
+  }
+
+  const workspaceName = workspace.toLowerCase().trim()
+  let connection
+
+  try {
+    connection = await pool.getConnection()
+
+    const [ws] = await connection.execute(
+      `SELECT id FROM workspaces WHERE name = ?`,
+      [workspaceName]
+    )
+
+    if (!ws.length) {
+      return res.status(404).json({ message: 'Workspace not found' })
+    }
+
+    const workspaceId = ws[0].id
+
+    // Check role
+    const [roleRow] = await connection.execute(
+      `
+      SELECT role FROM workspace_users
+      WHERE user_id = ? AND workspace_id = ?
+      `,
+      [userId, workspaceId]
+    )
+
+    if (!roleRow.length) {
+      return res.status(404).json({ message: 'User not in workspace' })
+    }
+
+    if (roleRow[0].role === 'admin') {
+      return res.status(403).json({ message: 'Admin cannot be removed' })
+    }
+
+    // Delete
+    await connection.execute(
+      `
+      DELETE FROM workspace_users
+      WHERE user_id = ? AND workspace_id = ?
+      `,
+      [userId, workspaceId]
+    )
+
+    await connection.execute(
+      `
+      UPDATE users
+      SET workspace = NULL,
+          workspaceUid = NULL,
+          role = NULL
+      WHERE uid = ?
+      `,
+      [userId]
+    )
+
+    return res.json({ message: 'User removed' })
+
+  } catch (error) {
+    return res.status(500).json({ message: 'Delete failed' })
+  } finally {
+    if (connection) connection.release()
+  }
+})
+
+
+
+app.patch('/workspaceUser/role', async (req, res) => {
+  const { userId, role, workspace } = req.body;
+
+  if (!userId || !role || !workspace) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  const workspaceName = workspace.toLowerCase().trim();
+  let connection;
+
+  try {
+    connection = await pool.getConnection();
+
+    // 1️⃣ Get workspace ID
+    const [workspaceRows] = await connection.execute(
+      'SELECT id FROM workspaces WHERE name = ?',
+      [workspaceName]
+    );
+
+    if (workspaceRows.length === 0) {
+      return res.status(404).json({ message: 'Workspace not found' });
+    }
+
+    const workspaceId = workspaceRows[0].id;
+
+    // 2️⃣ Get current admin
+    const [adminRows] = await connection.execute(
+      `SELECT user_id FROM workspace_users
+       WHERE workspace_id = ? AND role = 'admin'`,
+      [workspaceId]
+    );
+
+    if (adminRows.length === 0) {
+      return res.status(403).json({ message: 'No admin found' });
+    }
+
+    const adminId = adminRows[0].user_id;
+
+    // 3️⃣ Prevent admin demoting himself
+    if (adminId === userId && role !== 'admin') {
+      return res.status(403).json({
+        message: 'Admin cannot change his own role'
+      });
+    }
+
+    // 4️⃣ Update role
+    await connection.execute(
+      `UPDATE workspace_users
+       SET role = ?
+       WHERE user_id = ? AND workspace_id = ?`,
+      [role, userId, workspaceId]
+    );
+
+    // 5️⃣ Sync users table
+    await connection.execute(
+      `UPDATE users SET role = ? WHERE uid = ?`,
+      [role, userId]
+    );
+
+    return res.status(200).json({
+      message: 'User role updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Role update error:', error);
+    return res.status(500).json({
+      message: 'Failed to update role',
+      error: error.message
+    });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.post('/workspaceUser/transfer-admin', async (req, res) => {
+  const { fromUserId, toUserId, workspace } = req.body
+
+  if (!fromUserId || !toUserId || !workspace) {
+    return res.status(400).json({ message: 'Missing fields' })
+  }
+
+  const workspaceName = workspace.toLowerCase().trim()
+  let connection
+
+  try {
+    connection = await pool.getConnection()
+
+    const [ws] = await connection.execute(
+      `SELECT id FROM workspaces WHERE name = ?`,
+      [workspaceName]
+    )
+
+    if (!ws.length) {
+      return res.status(404).json({ message: 'Workspace not found' })
+    }
+
+    const workspaceId = ws[0].id
+
+    // Verify admin
+    const [admin] = await connection.execute(
+      `
+      SELECT role FROM workspace_users
+      WHERE user_id = ? AND workspace_id = ?
+      `,
+      [fromUserId, workspaceId]
+    )
+
+    if (!admin.length || admin[0].role !== 'admin') {
+      return res.status(403).json({ message: 'Only admin can transfer ownership' })
+    }
+
+    await connection.beginTransaction()
+
+    // Old admin → member
+    await connection.execute(
+      `
+      UPDATE workspace_users
+      SET role = 'member'
+      WHERE user_id = ? AND workspace_id = ?
+      `,
+      [fromUserId, workspaceId]
+    )
+
+    // New admin
+    await connection.execute(
+      `
+      UPDATE workspace_users
+      SET role = 'admin'
+      WHERE user_id = ? AND workspace_id = ?
+      `,
+      [toUserId, workspaceId]
+    )
+
+    // Sync users table
+    await connection.execute(
+      `UPDATE users SET role = 'member' WHERE uid = ?`,
+      [fromUserId]
+    )
+
+    await connection.execute(
+      `UPDATE users SET role = 'admin' WHERE uid = ?`,
+      [toUserId]
+    )
+
+    await connection.commit()
+
+    return res.json({ message: 'Admin transferred successfully' })
+
+  } catch (error) {
+    await connection.rollback()
+    return res.status(500).json({ message: error.message })
+  } finally {
+    if (connection) connection.release()
+  }
+})
+
+
+app.get('/superadmin/workspaces', async (req, res) => {
+  const { uid } = req.query
+
+  try {
+    const connection = await pool.getConnection()
+
+    // verify superadmin
+    const [admin] = await connection.execute(
+      `SELECT role FROM users WHERE uid=?`,
+      [uid]
+    )
+
+    if (!admin.length || admin[0].role !== 'superadmin') {
+      connection.release()
+      return res.status(403).json({ message: 'Not allowed' })
+    }
+
+    const [rows] = await connection.execute(`
+      SELECT 
+        w.id AS workspaceId,
+        w.name AS workspace,
+        u.email AS adminEmail,
+        u.name AS adminName,
+        w.created_at
+      FROM workspaces w
+      JOIN workspace_users wu ON wu.workspace_id = w.id AND wu.role = 'admin'
+      JOIN users u ON u.uid = wu.user_id
+      ORDER BY w.created_at DESC
+    `)
+
+    connection.release()
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ message: e.message })
+  }
+})
+
+app.delete('/superadmin/workspace', async (req, res) => {
+  const { uid, workspaceId } = req.body
+
+  const connection = await pool.getConnection()
+
+  try {
+    // Verify superadmin
+    const [admin] = await connection.execute(
+      `SELECT role FROM users WHERE uid=?`,
+      [uid]
+    )
+
+    if (!admin.length || admin[0].role !== 'superadmin') {
+      connection.release()
+      return res.status(403).json({ message: 'Not allowed' })
+    }
+
+    await connection.beginTransaction()
+
+    // Remove users from workspace
+    await connection.execute(
+      `DELETE FROM workspace_users WHERE workspace_id=?`,
+      [workspaceId]
+    )
+
+    // Clear users workspace fields
+    await connection.execute(
+      `UPDATE users SET workspace=NULL, workspaceUid=NULL, role='member'
+       WHERE workspaceUid=?`,
+      [workspaceId]
+    )
+
+    // Delete workspace
+    await connection.execute(
+      `DELETE FROM workspaces WHERE id=?`,
+      [workspaceId]
+    )
+
+    await connection.commit()
+    res.json({ message: 'Workspace deleted' })
+  } catch (e) {
+    await connection.rollback()
+    res.status(500).json({ message: e.message })
+  } finally {
+    connection.release()
+  }
+})
 
 
 // const transporter = nodemailer.createTransport({
@@ -1037,7 +1631,6 @@ app.post('/subscription-webhook-endpoint', async (req, res) => {
 });
 
 // verify invite
-
 inviteRoute.post("/verify-invite", (req, res) => {
   const { token } = req.body;
 
@@ -1053,7 +1646,6 @@ inviteRoute.post("/verify-invite", (req, res) => {
     return res.status(400).json({ message: "Invalid or expired token" });
   }
 });
-
 
 
 app.listen(PORT,async () => {
