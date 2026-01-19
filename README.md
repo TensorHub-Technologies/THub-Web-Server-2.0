@@ -1,2 +1,2 @@
 # Thub-web-server
-v1
+v2
