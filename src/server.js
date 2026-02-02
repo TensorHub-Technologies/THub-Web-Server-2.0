@@ -105,57 +105,57 @@ app.use("/api/image-upload", imageUploadRoute)
 app.use("/api/users/update", userUpdateRoute)
 
 // invite user to workspace
-app.use("/api/invite",inviteRoute)
+app.use("/api/invite", inviteRoute)
 
 // invite Register user
-app.use("/user/invite/register",inviteRegister)
+app.use("/user/invite/register", inviteRegister)
 
 // paypal subscription
-app.use("/api/paypal/subscription",paypalRoutes)
+app.use("/api/paypal/subscription", paypalRoutes)
 
 // paypal webhook 
-app.use("/paypal/webhook",paypalWebhookRoute)
+app.use("/paypal/webhook", paypalWebhookRoute)
 
 // razorpay subscription
-app.use("/create-subscription",createSubscriptionRoute)
+app.use("/create-subscription", createSubscriptionRoute)
 
-app.use("/validate-subscription",validateSubscriptionRoute)
+app.use("/validate-subscription", validateSubscriptionRoute)
 
 // payu money
-app.use("/api/payments",payuPaymentRoute)
+app.use("/api/payments", payuPaymentRoute)
 
 // agent email trigger
-app.use("/api/agent/email",emailTriggerAgent)
+app.use("/api/agent/email", emailTriggerAgent)
 
 
-app.use("/api/contactmail",contactMail)
+app.use("/api/contactmail", contactMail)
 
 // agent scheduler
 app.use("/api/schedules", schedulerAgent)
 
 // user course enroll
-app.use("/api/student-enroll",studentEnroll)
+app.use("/api/student-enroll", studentEnroll)
 // subscription
-app.use("/api/create-course-order",createCourseOrderRoute)
+app.use("/api/create-course-order", createCourseOrderRoute)
 
 // course verify
-app.use("/api/verify-course-payment",verifyCoursePaymentRoute)
+app.use("/api/verify-course-payment", verifyCoursePaymentRoute)
 
 async function loadScheduledJobs() {
-    const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
-    jobs.forEach(scheduleJob);
+  const [jobs] = await pool.query('SELECT * FROM scheduled_jobs WHERE status = "active"');
+  jobs.forEach(scheduleJob);
 }
 
 app.get("/", (req, res) => {
   const url = process.env.URL;
-  res.status(200).send({ message: "Server running.....", url }); 
+  res.status(200).send({ message: "Server running.....", url });
 });
 
 app.post("/getProUsers", async (req, res) => {
 
   const { proUserId } = req.body;
   const connection = await pool.getConnection();
-  
+
   const [rows] = await connection.execute(`SELECT count(1) as Count FROM users WHERE pro_user_id LIKE '%${proUserId}%'`);
   connection.release();
 
@@ -216,19 +216,19 @@ app.post("/api/auth/google", async (req, res) => {
     const subscription_status = "active";
 
     if (rows.length > 0) {
-    const existing_login_type = rows[0].login_type;
+      const existing_login_type = rows[0].login_type;
       console.log("Existing login type:", existing_login_type);
-  if (existing_login_type !== "google") {
-    // User is already registered with a different method
-    return res.status(400).json({
-      success: false,
-      message: `This email is already registered using ${existing_login_type}. Please log in using ${existing_login_type}.`
-    });
-  }
+      if (existing_login_type !== "google") {
+        // User is already registered with a different method
+        return res.status(400).json({
+          success: false,
+          message: `This email is already registered using ${existing_login_type}. Please log in using ${existing_login_type}.`
+        });
+      }
       subscription_type = rows[0].subscription_type;
       expiry_date = rows[0].expiry_date;
-      workspace = rows[0].workspace; 
-      
+      workspace = rows[0].workspace;
+
     } else {
       isNewUser = true;
       const expiryDateObj = new Date(subscription_date);
@@ -337,29 +337,29 @@ app.post("/microuser", async (req, res) => {
     const connection = await pool.getConnection();
 
     // Check if the user exists
-const [rows] = await connection.execute(
-  `SELECT * FROM users WHERE email = ?`,
-  [email]
-);
+    const [rows] = await connection.execute(
+      `SELECT * FROM users WHERE email = ?`,
+      [email]
+    );
 
-if (rows.length > 0) {
-  const existingUser = rows[0];
+    if (rows.length > 0) {
+      const existingUser = rows[0];
 
-  // Check if login type matches
-  if (existingUser.login_type !== login_type) {
-    await connection.release();
-    return res.status(400).json({
-      message: `This email is already registered using ${existingUser.login_type}. Please use ${existingUser.login_type} login.`,
-      login_type: existingUser.login_type,
-    });
-  }
+      // Check if login type matches
+      if (existingUser.login_type !== login_type) {
+        await connection.release();
+        return res.status(400).json({
+          message: `This email is already registered using ${existingUser.login_type}. Please use ${existingUser.login_type} login.`,
+          login_type: existingUser.login_type,
+        });
+      }
 
-  await connection.release();
-  return res.status(200).json({
-    message: "User already exists",
-    user: existingUser,
-  });
-}
+      await connection.release();
+      return res.status(200).json({
+        message: "User already exists",
+        user: existingUser,
+      });
+    }
     const insertUserQuery = `
       INSERT INTO users (
         uid, email, phone, name, 
@@ -442,8 +442,8 @@ app.get("/getAccessToken", async (req, res) => {
     console.log("Symbol(kHeaders) not found in req");
   }
 
-  console.log(origin,"origin",process.env.GITHUB_CLIENT_ID_DEMO);
-  
+  console.log(origin, "origin", process.env.GITHUB_CLIENT_ID_DEMO);
+
 
   try {
     let params;
@@ -468,7 +468,7 @@ app.get("/getAccessToken", async (req, res) => {
     } else {
       return res.status(400).json({ error: "Invalid Github hostname" });
     }
-    console.log(params.toString(),"params");
+    console.log(params.toString(), "params");
 
     const { data } = await axios.post(
       "https://github.com/login/oauth/access_token",
@@ -509,8 +509,8 @@ app.get("/getuserData", async (req, res) => {
 
     try {
       const current_date = new Date();
-      const effective_subscription_date = current_date.toISOString().split("T")[0]; 
-      
+      const effective_subscription_date = current_date.toISOString().split("T")[0];
+
       // Default values for new users
       const subscription_type = "free";
       const subscription_status = "active";
@@ -806,7 +806,7 @@ app.post("/loginUser", async (req, res) => {
     }
 
     // const token = jwt.sign({ uid, email }, process.env.EMAIL_SECRET_KEY);
-    console.log(workspace,"workspace")
+    console.log(workspace, "workspace")
     res.status(200).json({
       message: "Login successful",
       userId: uid,
@@ -839,14 +839,19 @@ app.post('/updateUser', async (req, res) => {
 
   try {
     // ----------------------------------
-    // 1️⃣ SKIP PROFILE (NORMAL USER)
+    // 1️⃣ SKIP PROFILE (SESSION ONLY)
     // ----------------------------------
     if (profileCompletedOnly) {
       await connection.execute(
-        `UPDATE users SET profile_completed = 1 WHERE uid = ?`,
+        `UPDATE users
+         SET profile_skipped = 1
+         WHERE uid = ?`,
         [uid]
       )
-      return res.json({ message: 'Profile skipped' })
+
+      return res.json({
+        message: 'Profile skipped for this session'
+      })
     }
 
     if (!workspace) {
@@ -862,14 +867,14 @@ app.post('/updateUser', async (req, res) => {
     )
 
     // ----------------------------------
-    // 2️⃣ INVITE FLOW (WORKSPACE EXISTS)
+    // 4️⃣ INVITE FLOW (WORKSPACE EXISTS)
     // ----------------------------------
     if (ws.length) {
       const workspaceId = ws[0].id
 
       await connection.beginTransaction()
 
-      // Avoid duplicate joins
+      // Avoid duplicate join
       await connection.execute(
         `INSERT IGNORE INTO workspace_users (workspace_id, user_id, role)
          VALUES (?, ?, ?)`,
@@ -884,7 +889,8 @@ app.post('/updateUser', async (req, res) => {
              workspace = ?,
              workspaceUid = ?,
              role = ?,
-             profile_completed = 1
+             profile_completed = 1,
+             profile_skipped = 0
          WHERE uid = ?`,
         [
           company,
@@ -928,7 +934,8 @@ app.post('/updateUser', async (req, res) => {
            workspace = ?,
            workspaceUid = ?,
            role = 'admin',
-           profile_completed = 1
+           profile_completed = 1,
+           profile_skipped = 0
        WHERE uid = ?`,
       [
         company,
@@ -941,7 +948,7 @@ app.post('/updateUser', async (req, res) => {
     )
 
     await connection.commit()
-    res.json({ message: 'Workspace created' })
+    return res.json({ message: 'Workspace created' })
 
   } catch (e) {
     await connection.rollback()
@@ -955,76 +962,70 @@ app.post('/updateUser', async (req, res) => {
 
 
 app.post('/inviteUser', async (req, res) => {
-  const { email, workspace, invitedBy, role = 'member' } = req.body
+  const { email, workspace, invitedBy, role = 'member' } = req.body;
 
   if (!email || !workspace || !invitedBy) {
-    return res.status(400).json({ message: 'Missing fields' })
+    return res.status(400).json({ message: 'Missing fields' });
   }
 
-  const workspaceName = workspace.toLowerCase().trim()
-  const token = crypto.randomBytes(32).toString('hex')
-  const inviteId = uuidv4()
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const workspaceName = workspace.toLowerCase().trim();
+  const token = crypto.randomBytes(32).toString('hex');
+  const inviteId = uuidv4();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  let connection
+  // Generate invite link dynamically using env variable
+  const baseUrl = process.env.INVITE_BASE_URL || 'http://localhost:8080/user-info';
+  const inviteLink = `${baseUrl}?token=${token}`;
+
+  let connection;
   try {
-    connection = await pool.getConnection()
+    connection = await pool.getConnection();
 
     // Workspace
     const [ws] = await connection.execute(
       `SELECT id FROM workspaces WHERE name = ?`,
       [workspaceName]
-    )
+    );
 
     if (!ws.length) {
-      return res.status(404).json({ message: 'Workspace not found' })
+      return res.status(404).json({ message: 'Workspace not found' });
     }
 
-    const workspaceId = ws[0].id
+    const workspaceId = ws[0].id;
 
     // Admin check
     const [admin] = await connection.execute(
-      `
-      SELECT role FROM workspace_users
-      WHERE workspace_id = ? AND user_id = ?
-      `,
+      `SELECT role FROM workspace_users WHERE workspace_id = ? AND user_id = ?`,
       [workspaceId, invitedBy]
-    )
+    );
 
     if (!admin.length || admin[0].role !== 'admin') {
-      return res.status(403).json({ message: 'Only admin can invite users' })
+      return res.status(403).json({ message: 'Only admin can invite users' });
     }
 
     // Save invite
     await connection.execute(
-      `
-      INSERT INTO workspace_invites
+      `INSERT INTO workspace_invites
       (id, email, workspace_id, workspace_name, role, token, invited_by, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-      [
-        inviteId,
-        email,
-        workspaceId,
-        workspaceName,
-        role,
-        token,
-        invitedBy,
-        expiresAt
-      ]
-    )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [inviteId, email, workspaceId, workspaceName, role, token, invitedBy, expiresAt]
+    );
 
-    // TODO: send email
-    // sendInviteEmail({ to: email, token })
+    // Send email with proper invite link
+    await sendInviteEmail({
+      to: email,
+      inviteLink,
+      workspace: workspaceName
+    });
 
-    return res.json({ message: 'Invite sent' })
+    return res.json({ message: 'Invite sent' });
 
   } catch (e) {
-    return res.status(500).json({ message: e.message })
+    return res.status(500).json({ message: e.message });
   } finally {
-    if (connection) connection.release()
+    if (connection) connection.release();
   }
-})
+});
 
 
 app.get("/invite/validate", async (req, res) => {
@@ -1590,46 +1591,46 @@ app.post("/reset-password/:token", async (req, res) => {
 });
 
 app.post('/subscription-webhook-endpoint', async (req, res) => {
-    const secret = process.env.RAZORPAY_WEBHOOKS_SECRET; 
-    // Verify Razorpay Signature
-    const receivedSignature = req.headers['x-razorpay-signature'];
-    const body = JSON.stringify(req.body);
+  const secret = process.env.RAZORPAY_WEBHOOKS_SECRET;
+  // Verify Razorpay Signature
+  const receivedSignature = req.headers['x-razorpay-signature'];
+  const body = JSON.stringify(req.body);
 
-    const expectedSignature = crypto
-        .createHmac('sha256', secret)
-        .update(body)
-        .digest('hex');
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex');
 
-    if (expectedSignature !== receivedSignature) {
-        return res.status(400).json({ error: 'Invalid webhook signature' });
-    }
+  if (expectedSignature !== receivedSignature) {
+    return res.status(400).json({ error: 'Invalid webhook signature' });
+  }
 
-    const event = req.body.event;
-    const subscriptionId = req.body.payload.subscription.entity.id;
-    const status = req.body.payload.subscription.entity.status;
+  const event = req.body.event;
+  const subscriptionId = req.body.payload.subscription.entity.id;
+  const status = req.body.payload.subscription.entity.status;
 
-    switch (event) {
-        case 'subscription.activated':
-            console.log(`✅ Subscription Activated: ${subscriptionId}`);
-            break;
+  switch (event) {
+    case 'subscription.activated':
+      console.log(`✅ Subscription Activated: ${subscriptionId}`);
+      break;
 
-        case 'subscription.charged':
-            console.log(`💰 Payment Received for Subscription: ${subscriptionId}`);
-            break;
+    case 'subscription.charged':
+      console.log(`💰 Payment Received for Subscription: ${subscriptionId}`);
+      break;
 
-        case 'subscription.completed':
-            console.log(`🎉 Subscription Completed: ${subscriptionId}`);
-            break;
+    case 'subscription.completed':
+      console.log(`🎉 Subscription Completed: ${subscriptionId}`);
+      break;
 
-        case 'subscription.cancelled':
-            console.log(`❌ Subscription Cancelled: ${subscriptionId}`);
-            break;
+    case 'subscription.cancelled':
+      console.log(`❌ Subscription Cancelled: ${subscriptionId}`);
+      break;
 
-        default:
-            console.log(`🔹 Unhandled event: ${event}`);
-    }
+    default:
+      console.log(`🔹 Unhandled event: ${event}`);
+  }
 
-    res.json({ status: 'success' });
+  res.json({ status: 'success' });
 });
 
 // verify invite
@@ -1650,7 +1651,7 @@ inviteRoute.post("/verify-invite", (req, res) => {
 });
 
 
-app.listen(PORT,async () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   await loadScheduledJobs();
 });
