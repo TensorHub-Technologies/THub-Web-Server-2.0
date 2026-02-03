@@ -827,7 +827,6 @@ app.post('/updateUser', async (req, res) => {
     department,
     designation,
     workspace,
-    role = 'member',
     profileCompletedOnly
   } = req.body
 
@@ -838,20 +837,54 @@ app.post('/updateUser', async (req, res) => {
   const connection = await pool.getConnection()
 
   try {
-    // ----------------------------------
-    // 1️⃣ SKIP PROFILE (SESSION ONLY)
-    // ----------------------------------
+    // -----------------------------
+    // 1️⃣ PROFILE SKIP
+    // -----------------------------
     if (profileCompletedOnly) {
       await connection.execute(
         `UPDATE users
-         SET profile_skipped = 1
+         SET profile_skipped = 1,
+             profile_completed = 1
          WHERE uid = ?`,
         [uid]
       )
 
-      return res.json({
-        message: 'Profile skipped for this session'
-      })
+      return res.json({ message: 'Profile skipped' })
+    }
+
+    if (!company || !department || !designation) {
+      return res.status(400).json({ message: 'All profile fields required' })
+    }
+
+    // -----------------------------
+    // 2️⃣ FETCH USER (CRITICAL)
+    // -----------------------------
+    const [[user]] = await connection.execute(
+      `SELECT uid, workspaceUid, role FROM users WHERE uid = ?`,
+      [uid]
+    )
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    // -----------------------------
+    // 3️⃣ USER ALREADY IN WORKSPACE
+    // (INVITE WAS ACCEPTED EARLIER)
+    // -----------------------------
+    if (user.workspaceUid) {
+      await connection.execute(
+        `UPDATE users
+         SET company = ?,
+             department = ?,
+             designation = ?,
+             profile_completed = 1,
+             profile_skipped = 0
+         WHERE uid = ?`,
+        [company, department, designation, uid]
+      )
+
+      return res.json({ message: 'Profile updated' })
     }
 
     if (!workspace) {
@@ -860,25 +893,26 @@ app.post('/updateUser', async (req, res) => {
 
     const workspaceName = workspace.toLowerCase().trim()
 
-    // Check workspace existence
-    const [ws] = await connection.execute(
+    // -----------------------------
+    // 4️⃣ CHECK WORKSPACE
+    // -----------------------------
+    const [[existingWorkspace]] = await connection.execute(
       `SELECT id FROM workspaces WHERE name = ?`,
       [workspaceName]
     )
 
-    // ----------------------------------
-    // 4️⃣ INVITE FLOW (WORKSPACE EXISTS)
-    // ----------------------------------
-    if (ws.length) {
-      const workspaceId = ws[0].id
+    await connection.beginTransaction()
 
-      await connection.beginTransaction()
+    // -----------------------------
+    // 5️⃣ INVITED USER JOIN
+    // -----------------------------
+    if (existingWorkspace) {
+      const workspaceId = existingWorkspace.id
 
-      // Avoid duplicate join
       await connection.execute(
-        `INSERT IGNORE INTO workspace_users (workspace_id, user_id, role)
-         VALUES (?, ?, ?)`,
-        [workspaceId, uid, role]
+        `INSERT INTO workspace_users (workspace_id, user_id, role)
+         VALUES (?, ?, 'member')`,
+        [workspaceId, uid]
       )
 
       await connection.execute(
@@ -888,7 +922,7 @@ app.post('/updateUser', async (req, res) => {
              designation = ?,
              workspace = ?,
              workspaceUid = ?,
-             role = ?,
+             role = 'member',
              profile_completed = 1,
              profile_skipped = 0
          WHERE uid = ?`,
@@ -898,7 +932,6 @@ app.post('/updateUser', async (req, res) => {
           designation,
           workspaceName,
           workspaceId,
-          role,
           uid
         ]
       )
@@ -907,12 +940,10 @@ app.post('/updateUser', async (req, res) => {
       return res.json({ message: 'Joined workspace' })
     }
 
-    // ----------------------------------
-    // 3️⃣ FIRST-TIME WORKSPACE CREATION
-    // ----------------------------------
+    // -----------------------------
+    // 6️⃣ FIRST USER → CREATE WORKSPACE
+    // -----------------------------
     const workspaceId = uuidv4()
-
-    await connection.beginTransaction()
 
     await connection.execute(
       `INSERT INTO workspaces (id, name, created_by)
@@ -952,6 +983,7 @@ app.post('/updateUser', async (req, res) => {
 
   } catch (e) {
     await connection.rollback()
+    console.error(e)
     res.status(500).json({ message: e.message })
   } finally {
     connection.release()
@@ -973,15 +1005,15 @@ app.post('/inviteUser', async (req, res) => {
   const inviteId = uuidv4();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  // Generate invite link dynamically using env variable
-  const baseUrl = process.env.INVITE_BASE_URL || 'http://localhost:8080/user-info';
+  const baseUrl =
+    process.env.INVITE_BASE_URL || 'http://localhost:8080/accept-invite';
   const inviteLink = `${baseUrl}?token=${token}`;
 
   let connection;
   try {
     connection = await pool.getConnection();
 
-    // Workspace
+    // 1️⃣ Get workspace
     const [ws] = await connection.execute(
       `SELECT id FROM workspaces WHERE name = ?`,
       [workspaceName]
@@ -993,9 +1025,10 @@ app.post('/inviteUser', async (req, res) => {
 
     const workspaceId = ws[0].id;
 
-    // Admin check
+    // 2️⃣ Admin check
     const [admin] = await connection.execute(
-      `SELECT role FROM workspace_users WHERE workspace_id = ? AND user_id = ?`,
+      `SELECT role FROM workspace_users
+       WHERE workspace_id = ? AND user_id = ?`,
       [workspaceId, invitedBy]
     );
 
@@ -1003,39 +1036,62 @@ app.post('/inviteUser', async (req, res) => {
       return res.status(403).json({ message: 'Only admin can invite users' });
     }
 
-    // Save invite
+    // 3️⃣ Prevent duplicate invites
+    const [existingInvite] = await connection.execute(
+      `SELECT 1 FROM workspace_invites
+       WHERE email = ? AND workspace_id = ? AND used = FALSE`,
+      [email, workspaceId]
+    );
+
+    if (existingInvite.length) {
+      return res.status(409).json({ message: 'Invite already sent' });
+    }
+
+    // 4️⃣ Prevent inviting existing members
+    const [existingUser] = await connection.execute(
+      `SELECT 1 FROM users
+       WHERE email = ? AND workspaceUid = ?`,
+      [email, workspaceId]
+    );
+
+    if (existingUser.length) {
+      return res.status(409).json({ message: 'User already in workspace' });
+    }
+
+    // 5️⃣ Save invite
     await connection.execute(
       `INSERT INTO workspace_invites
-      (id, email, workspace_id, workspace_name, role, token, invited_by, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, email, workspace_id, workspace_name, role, token, invited_by, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [inviteId, email, workspaceId, workspaceName, role, token, invitedBy, expiresAt]
     );
 
-    // Send email with proper invite link
+    // 6️⃣ Send email
     await sendInviteEmail({
       to: email,
       inviteLink,
       workspace: workspaceName
     });
 
-    return res.json({ message: 'Invite sent' });
-
+    res.json({ message: 'Invite sent successfully' });
   } catch (e) {
-    return res.status(500).json({ message: e.message });
+    res.status(500).json({ message: e.message });
   } finally {
     if (connection) connection.release();
   }
 });
 
 
-app.get("/invite/validate", async (req, res) => {
-  const { token } = req.query;
 
+app.get('/invite/validate', async (req, res) => {
+  const { token } = req.query;
   const connection = await pool.getConnection();
+
   try {
     const [rows] = await connection.execute(
-      `SELECT email, workspace_name, role, used, expires_at
-       FROM workspace_invites WHERE token = ?`,
+      `SELECT email, workspace_name, role, invited_by, used, expires_at
+       FROM workspace_invites
+       WHERE token = ?`,
       [token]
     );
 
@@ -1053,12 +1109,15 @@ app.get("/invite/validate", async (req, res) => {
       valid: true,
       email: invite.email,
       workspace: invite.workspace_name,
-      role: invite.role
+      role: invite.role,
+      invitedBy: invite.invited_by
     });
   } finally {
     connection.release();
   }
 });
+
+
 
 
 app.post("/invite/accept", async (req, res) => {
@@ -1067,8 +1126,11 @@ app.post("/invite/accept", async (req, res) => {
 
   try {
     const [invites] = await connection.execute(
-      `SELECT * FROM workspace_invites
-       WHERE token=? AND used=FALSE AND expires_at > NOW()`,
+      `SELECT *
+       FROM workspace_invites
+       WHERE token = ?
+         AND used = FALSE
+         AND expires_at > NOW()`,
       [token]
     );
 
@@ -1084,33 +1146,51 @@ app.post("/invite/accept", async (req, res) => {
 
     const [exists] = await connection.execute(
       `SELECT 1 FROM workspace_users
-       WHERE workspace_id=? AND user_id=?`,
+       WHERE workspace_id = ? AND user_id = ?`,
       [invite.workspace_id, uid]
     );
+
     if (exists.length) {
       return res.json({ message: "Already joined" });
     }
 
     await connection.beginTransaction();
 
+    // 1️⃣ Add to workspace_users
     await connection.execute(
       `INSERT INTO workspace_users (workspace_id, user_id, role)
        VALUES (?, ?, ?)`,
       [invite.workspace_id, uid, invite.role]
     );
 
+    // 2️⃣ Sync users table (CRITICAL)
     await connection.execute(
-      `UPDATE users SET workspaceUid=? WHERE uid=?`,
-      [invite.workspace_id, uid]
+      `UPDATE users
+       SET workspaceUid = ?,
+           workspace = ?,
+           role = ?,
+           profile_completed = 1,
+           profile_skipped = 0
+       WHERE uid = ?`,
+      [
+        invite.workspace_id,
+        invite.workspace_name,
+        invite.role,
+        uid
+      ]
     );
 
+    // 3️⃣ Mark invite as used
     await connection.execute(
-      `UPDATE workspace_invites SET used=TRUE WHERE token=?`,
+      `UPDATE workspace_invites
+       SET used = TRUE
+       WHERE token = ?`,
       [token]
     );
 
     await connection.commit();
-    res.json({ message: "Joined workspace" });
+
+    res.json({ message: "Joined workspace successfully" });
 
   } catch (e) {
     await connection.rollback();
@@ -1119,6 +1199,119 @@ app.post("/invite/accept", async (req, res) => {
     connection.release();
   }
 });
+
+
+
+app.get("/invite/validate", async (req, res) => {
+  const { token } = req.query;
+  const connection = await pool.getConnection();
+
+  try {
+    const [rows] = await connection.execute(
+      `SELECT email, workspace_name, role, invited_by, used, expires_at
+       FROM workspace_invites
+       WHERE token = ?`,
+      [token]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ valid: false });
+    }
+
+    const invite = rows[0];
+
+    if (invite.used || new Date(invite.expires_at) < new Date()) {
+      return res.status(400).json({ valid: false });
+    }
+
+    res.json({
+      valid: true,
+      email: invite.email,
+      workspace: invite.workspace_name,
+      role: invite.role,
+      invitedBy: invite.invited_by   // ✅ NOW WORKS
+    });
+  } finally {
+    connection.release();
+  }
+});
+
+
+
+app.post('/invite/accept', async (req, res) => {
+  const { token, uid, email } = req.body;
+  const connection = await pool.getConnection();
+
+  try {
+    const [invites] = await connection.execute(
+      `SELECT *
+       FROM workspace_invites
+       WHERE token = ?
+         AND expires_at > NOW()`,
+      [token]
+    );
+
+    if (!invites.length) {
+      return res.status(400).json({ message: 'Invalid invite' });
+    }
+
+    const invite = invites[0];
+
+    if (invite.used) {
+      return res.json({ message: 'Already joined' });
+    }
+
+    if (invite.email !== email) {
+      return res.status(403).json({ message: 'Email mismatch' });
+    }
+
+    await connection.beginTransaction();
+
+    // 1️⃣ Prevent duplicate workspace_users entry
+    const [exists] = await connection.execute(
+      `SELECT 1 FROM workspace_users
+       WHERE workspace_id = ? AND user_id = ?`,
+      [invite.workspace_id, uid]
+    );
+
+    if (!exists.length) {
+      await connection.execute(
+        `INSERT INTO workspace_users (workspace_id, user_id, role)
+         VALUES (?, ?, ?)`,
+        [invite.workspace_id, uid, invite.role]
+      );
+    }
+
+    // 2️⃣ Sync users table
+    await connection.execute(
+      `UPDATE users
+       SET workspaceUid = ?,
+           workspace = ?,
+           role = ?,
+           profile_completed = 1,
+           profile_skipped = 0
+       WHERE uid = ?`,
+      [invite.workspace_id, invite.workspace_name, invite.role, uid]
+    );
+
+    // 3️⃣ Mark invite used
+    await connection.execute(
+      `UPDATE workspace_invites SET used = TRUE WHERE token = ?`,
+      [token]
+    );
+
+    await connection.commit();
+
+    res.json({ message: 'Joined workspace successfully' });
+  } catch (e) {
+    await connection.rollback();
+    res.status(500).json({ message: e.message });
+  } finally {
+    connection.release();
+  }
+});
+
+
 
 
 
@@ -1202,7 +1395,6 @@ app.delete('/workspaceUser', async (req, res) => {
 
     const workspaceId = ws[0].id
 
-    // Check role
     const [roleRow] = await connection.execute(
       `
       SELECT role FROM workspace_users
@@ -1219,7 +1411,7 @@ app.delete('/workspaceUser', async (req, res) => {
       return res.status(403).json({ message: 'Admin cannot be removed' })
     }
 
-    // Delete
+    // ✅ Remove from workspace_users
     await connection.execute(
       `
       DELETE FROM workspace_users
@@ -1228,25 +1420,34 @@ app.delete('/workspaceUser', async (req, res) => {
       [userId, workspaceId]
     )
 
+    // ✅ Reset user → make them NEW USER
     await connection.execute(
       `
       UPDATE users
-      SET workspace = NULL,
-          workspaceUid = NULL,
-          role = NULL
+      SET
+        department = NULL,
+        role = NULL,
+        designation = NULL,
+        workspace = NULL,
+        company = NULL,
+        workspaceUid = NULL,
+        profile_completed = 0,
+        profile_skipped = 0
       WHERE uid = ?
       `,
       [userId]
     )
 
-    return res.json({ message: 'User removed' })
+    return res.json({ message: 'User removed and reset successfully' })
 
   } catch (error) {
+    console.error(error)
     return res.status(500).json({ message: 'Delete failed' })
   } finally {
     if (connection) connection.release()
   }
 })
+
 
 
 
