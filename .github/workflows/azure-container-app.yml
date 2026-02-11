@@ -6,7 +6,7 @@ variables:
   azureSubscription: ARMSC   # <-- ARM service connection name
  
   # Docker Registry service connection (used by Docker@2)
-  dockerRegistryServiceConnection: DockerSC    # <-- Docker Registry service connection name
+  dockerRegistryServiceConnection: DockerSCMain    # <-- Docker Registry service connection name
  
   resourceGroup: gs_rg_0361
   acrName: ca7a4dd637e6acr           # ACR name (not FQDN)
