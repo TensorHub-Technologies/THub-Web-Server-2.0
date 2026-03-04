@@ -75,7 +75,9 @@ const corsOptions = {
       "https://thub-web-demo-378678297066.europe-west1.run.app",
       "https://thub-server.wittycoast-8619cdd6.westus2.azurecontainerapps.io",
       "https://thub-app.calmisland-c4dd80be.westus2.azurecontainerapps.io",
-      "https://thub-web.calmisland-c4dd80be.westus2.azurecontainerapps.io"
+      "https://thub-web.calmisland-c4dd80be.westus2.azurecontainerapps.io",
+      "https://thub-app-ded.wittysand-a4a5c89d.westus2.azurecontainerapps.io"
+
     ];
 
     const regex = /^https?:\/\/([a-z0-9-]+\.)?thub\.tech$/;
