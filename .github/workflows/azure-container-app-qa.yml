@@ -1,5 +1,5 @@
 trigger:
-  - main
+  - qa
  
 variables:
   # Azure Resource Manager service connection (used by AzureCLI@2)
@@ -8,8 +8,8 @@ variables:
   # Docker Registry service connection (used by Docker@2)
   dockerRegistryServiceConnection: DockerSCMain    # <-- Docker Registry service connection name
  
-  resourceGroup: gs_rg_0361
-  acrName: ca7a4dd637e6acr           # ACR name (not FQDN)
+  resourceGroup: thub-qa
+  acrName: thubqa           # ACR name (not FQDN)
   containerAppName: thub-server
   imageName: thub-server
   tag: $(Build.BuildId)
