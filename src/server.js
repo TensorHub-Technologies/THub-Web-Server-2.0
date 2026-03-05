@@ -1740,7 +1740,7 @@ app.post("/forgot-password", async (req, res) => {
     const apiUrl =
       process.env.NODE_ENV === "development"
         ? "http://localhost:5173"
-        : "https://thub.tech";
+        : "http://localhost:5173";
     const resetURL = `${apiUrl}/auth/reset-password/${resetToken}?uid=${userId}`;
 
     await transporter.sendMail({
@@ -1768,13 +1768,33 @@ app.post("/reset-password/:token", async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // Fetch the user based on uid and token
     const [user] = await connection.execute(
-      `SELECT token_expiry, reset_token FROM users WHERE uid = ? AND reset_token = ?`,
+      `SELECT token_expiry, reset_token, password_hash FROM users WHERE uid = ? AND reset_token = ?`,
       [uid, token]
     );
 
-    // Hash the new password
+    if (user.length === 0) {
+      connection.release();
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+
+    // ✅ Compare using UTC timestamps directly in MySQL — avoids timezone issues entirely
+    const [tokenCheck] = await connection.execute(
+      `SELECT CASE WHEN token_expiry > UTC_TIMESTAMP() THEN 1 ELSE 0 END AS is_valid FROM users WHERE uid = ?`,
+      [uid]
+    );
+
+    if (!tokenCheck[0].is_valid) {
+      connection.release();
+      return res.status(400).json({ message: "Reset token has expired" });
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user[0].password_hash);
+    if (isSamePassword) {
+      connection.release();
+      return res.status(400).json({ message: "New password must be different from your old password" });
+    }
+
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
@@ -1784,13 +1804,11 @@ app.post("/reset-password/:token", async (req, res) => {
     );
 
     connection.release();
-
     res.status(200).json({ message: "Password reset successfully" });
+
   } catch (error) {
     console.error("Error resetting password:", error);
-    res
-      .status(500)
-      .json({ message: "Error resetting password", error: error.message });
+    res.status(500).json({ message: "Error resetting password", error: error.message });
   }
 });
 
